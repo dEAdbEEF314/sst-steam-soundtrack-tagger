@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+build/
+dist/
+
+# --- IDE / Editor (VS Code) ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# --- OS Specific (Windows) ---
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- Project Specific (SST) ---
+# ログファイルや一時的な解析データ
+*.log
+temp/
+out/
+
+# 先ほど苦戦したパッチファイル（管理不要なら）
+*.patch
+*.rej
+*.orig
+
+# --- Sensitive Data ---
+# APIキーや秘密情報を含む可能性があるファイル
+.env
+config/secrets.yaml
