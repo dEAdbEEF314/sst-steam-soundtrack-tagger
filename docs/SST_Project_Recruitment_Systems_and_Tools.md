@@ -9,3 +9,10 @@
 | **メタデータ操作** | **Mutagen等** | 各種タグフィールド（COMM, TPE2, TIT1等）への厳格な書き込み. |
 | **インフラ基盤** | **Docker** | 実行環境の隔離と、他環境（1台構成等）での再現性確保. |
 
+SST-Scout-VM: Ubuntu Desktop \+ Docker
+
+SST-Core-VM: Ubuntu server \+ Docker \+ USB-HDD-8TB( not mount )
+
+SST-Worker-CT: Ubuntu server \+ Docker \+ USB-SSD-1TB( /mnt/work\_area )
+
+M2 MacBookAir: Ollama \+ mlv

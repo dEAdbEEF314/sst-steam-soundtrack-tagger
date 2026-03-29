@@ -4,394 +4,126 @@
 
 ## 1. Overview
 
-SST is a metadata normalization pipeline designed specifically for **soundtracks purchased via Steam**.
+SST is a distributed metadata resolution system for **Steam-purchased soundtracks**.
 
-It identifies, enriches, and tags audio files using a hybrid strategy combining:
+It combines:
 
 * Steam metadata
-* MusicBrainz search (multi-language merged strategy)
-* AcoustID fingerprinting (partial verification + full fallback)
+* MusicBrainz search
+* AcoustID verification
 
 ---
 
-## 2. Scope
+## 2. System Architecture (UPDATED)
 
-### Target
+SST operates as a **distributed, orchestrated system**.
 
-* Soundtracks purchased via Steam
-* Audio files with missing or unreliable metadata
+### Nodes
 
-### Non-Target
-
-* Streaming audio
-* Non-Steam audio collections
-* Live recordings or user-modified audio
+* Scout Node: metadata acquisition
+* Core Node: orchestration (Prefect)
+* Worker Nodes: audio processing
 
 ---
 
-## 3. High-Level Pipeline
+## 3. Orchestration Layer (NEW)
 
-```
-[Input Audio Files]
-        ↓
-        [Steam Metadata Fetch (AppID)]
-                ↓
-                [MusicBrainz Album Candidate Search]
-                        ↓
-                        [Candidate Filtering & Scoring]
-                                ↓
-                                [Album Determination]
-                                        ↓
-                                        [Partial AcoustID Verification (3 tracks)]
-                                                ↓
-                                                [Full AcoustID Fallback (if needed)]
-                                                        ↓
-                                                        [Metadata Enrichment]
-                                                                ↓
-                                                                [Tag Writing]
-                                                                        ↓
-                                                                        [Storage (MinIO)]
-                                                                                ↓
-                                                                                [Review Queue (if necessary)]
-                                                                                ```
+SST uses **Prefect** to manage execution.
 
-                                                                                ---
+### Responsibilities
 
-## 4. Input Requirements
-
-### Required
-
-* Steam AppID
-* Local audio files (same album)
-
-### Derived
-
-* Track count
-* File duration
-* AcoustID fingerprints
+* Task scheduling
+* Retry handling
+* State tracking
+* Parallel execution
 
 ---
 
-## 5. Steam Metadata Acquisition
+## 4. Execution Model (NEW)
 
-### Source
-
-* Steam Store API
-
-### Required Fields
-
-* Title (localized)
-* Release date
-
-### Notes
-
-* Date precision may vary (year-only possible)
-* Title may differ from MusicBrainz entries
+* Asynchronous processing
+* Task-level parallelism
+* Distributed execution across nodes
 
 ---
 
-## 6. MusicBrainz Search Strategy
+## 5. Node Responsibilities (NEW)
 
-### Endpoint
+### Scout
 
-```
-/ws/2/release/
-```
-
----
-
-### Multi-Language Strategy
-
-Search is executed in parallel using multiple title variants and merged.
-
-```yaml
-search:
-  languages:
-      - ja
-          - en
-              - original
-                strategy: merge
-                ```
-
-                ---
-
-### Query Template
-
-```
-(
-  release:"{title_ja}"^3 OR
-    release:"{title_en}"^2 OR
-      release:"{title_original}"
-      )
-AND format:digital
-AND date:[{YYYY}-01-01 TO {YYYY}-12-31]
-```
+* Fetch Steam metadata
+* Perform web-based enrichment
 
 ---
 
-### Result Handling
+### Core
 
-* Merge results from all queries
-* Deduplicate by MBID
-* Limit to top N candidates (e.g., 20)
+* Execute Prefect flows
+* Manage pipeline state
 
 ---
 
-## 7. Candidate Filtering
+### Worker
 
-```yaml
-album_match:
-  track_count_tolerance: 1
-    date_tolerance_days: 30
-    ```
+* AcoustID processing
+* Audio tagging
+* File operations
 
-### Conditions
+---
 
-* Format must be Digital Media
-* Track count within tolerance
-* Release date within tolerance
+## 6. Pipeline
+
+1. Steam metadata acquisition
+2. MusicBrainz candidate search
+3. Candidate scoring
+4. Album determination
+5. Partial AcoustID verification
+6. Full AcoustID fallback
+7. Metadata enrichment
+8. Tag writing
+
+---
+
+## 7. MusicBrainz Strategy
+
+* Multi-language query (ja → en → original)
+* Merge results
+* Deduplicate
 
 ---
 
 ## 8. Candidate Scoring
 
-```
-score =
-  title_similarity
-    + track_count_score
-      + release_date_score
-        + format_score
-        ```
-
-        ---
-
-### Title Similarity
-
-* Normalize text (lowercase, remove symbols, normalize Unicode)
-* Use string similarity (e.g., Levenshtein or token-based)
+score = title + track + date + format
 
 ---
 
-### Track Count Score
+## 9. Partial Verification
 
-* Exact match → 1.0
-* ±1 difference → 0.7
-* Otherwise → 0
-
----
-
-### Release Date Score
-
-* Within 7 days → 1.0
-* Within 30 days → 0.7
-* Within 90 days → 0.4
-* Otherwise → 0
+* First 3 tracks
+* Match ratio ≥ threshold
 
 ---
 
-### Format Score
+## 10. Storage
 
-* Digital Media → 1.0
-* Otherwise → 0
-
----
-
-### Acceptance Threshold
-
-```yaml
-search:
-  accept_threshold: 2.5
-  ```
-
-  ---
-
-## 9. Album Determination
-
-* Select candidate with highest score
-* If score ≥ threshold → ACCEPT
-* Otherwise → fallback to AcoustID
+* MinIO (S3)
 
 ---
 
-## 10. Partial AcoustID Verification
+## 11. State Management
 
-### Configuration
-
-```yaml
-acoustid:
-  partial_verify_tracks: 3
-    partial_match_threshold: 0.8
-    ```
-
-    ---
-
-### Process
-
-1. Select first N tracks (default: 3)
-2. Generate fingerprints
-3. Query AcoustID
-4. Compare results with selected album
+* Managed by Prefect
 
 ---
 
-### Acceptance
+## 12. Design Principles
 
-* Match ratio ≥ threshold → ACCEPT
-* Otherwise → Full AcoustID
-
----
-
-## 11. Full AcoustID Matching (Fallback)
-
-### Trigger
-
-* No confident album candidate
-* Partial verification failed
-
-### Process
-
-* Fingerprint all tracks
-* Match each track individually
-* Reconstruct album from matches
-
----
-
-## 12. Metadata Enrichment
-
-### Sources
-
-* MusicBrainz
-* Cover Art Archive
-
-### Fields
-
-* Album title
-* Track title
-* Artist
-* Track number
-* Disc number
-* Release date
-* Artwork
-
----
-
-## 13. Tag Writing
-
-### Format
-
-* ID3v2.3 (strict)
-
-### Rules
-
-* Overwrite existing metadata
-* Preserve audio integrity
-
----
-
-## 14. Storage
-
-### Backend
-
-* MinIO (S3-compatible)
-
-### Structure
-
-```
-bucket/
-  ├─ processed/
-    ├─ review/
-      └─ logs/
-      ```
-
-      ---
-
-## 15. Review System
-
-### Trigger Conditions
-
-* Low confidence score
-* Conflicting identification results
-
-### Output
-
-* YAML metadata
-* Markdown diff comparison
-
----
-
-## 16. Cache Strategy
-
-* Cache all successful matches
-* Reuse only if confidence ≥ 0.95
-* manual_verified entries override all
-
----
-
-## 17. State Management
-
-```
-INGESTED
-FINGERPRINTED
-IDENTIFIED
-ENRICHED
-TAGGED
-STORED
-FAILED
-```
-
----
-
-## 18. Logging
-
-### Fields
-
-* job_id
-* track_id
-* step
-* result
-* error
-
----
-
-## 19. Config Structure
-
-```yaml
-search:
-  languages: [ja, en, original]
-    accept_threshold: 2.5
-
-    album_match:
-      track_count_tolerance: 1
-        date_tolerance_days: 30
-
-        acoustid:
-          partial_verify_tracks: 3
-            partial_match_threshold: 0.8
-            ```
-
-            ---
-
-## 20. Design Principles
-
-* Deterministic processing
-* Minimize false positives
-* Prefer precision over recall
-* Human-in-the-loop fallback
-* Cache-driven improvement
-
----
-
-## 21. Key Insight
-
-SST is not just a tagging tool.
-
-It is a **metadata resolution system** that combines:
-
-* Metadata inference
-* Acoustic verification
-* Human validation
+* Distributed-first
+* Orchestration-driven
+* Fault tolerant
+* Human fallback
 
 ---
 
 # END
-
