@@ -1,122 +1,397 @@
-# **SST (Steam Soundtrack Tagger) プロジェクト詳細仕様書**
+# SST (Steam Soundtrack Tagger) - Detailed Specifications
 
-## **1\. プロジェクトの目的と理念**
+---
 
-Steamで購入したサウンドトラックを、DJ実務（rekordbox/MusicBee等）に最適化されたメタタグと形式で自動整理する「多層メタデータ統合エンジン」を構築する。
+## 1. Overview
 
-### **規律**
+SST is a metadata normalization pipeline designed specifically for **soundtracks purchased via Steam**.
 
-1. **相手のルールを守る**: API規約やレート制限の遵守。  
-2. **相手に迷惑をかけない**: 不要なアクセスを避け、キャッシュを最大限活用。実ブラウザでの人間らしい挙動。  
-3. **品質至上主義**: ロスレス音源はAIFFへ、タグはID3v2.3へ厳格に準拠。  
-4. **レジリエンス**: 確信度が低い場合は独断で処理せず、人間によるレビューへ回す。
+It identifies, enriches, and tags audio files using a hybrid strategy combining:
 
-## **2\. システム構成（The Outer Gods Network）**
+* Steam metadata
+* MusicBrainz search (multi-language merged strategy)
+* AcoustID fingerprinting (partial verification + full fallback)
 
-すべてのファイルの受け渡しは **MinIO (S3互換API)** を経由し、オリジナルデータへの直接操作を禁止する。
+---
 
-* **SST-Core-VM (on Azathoth)**: 全体のワークフロー制御、Identity/Cache DB管理。  
-* **SST-Scout-VM (on Azathoth)**:  
-  * **実ブラウザ実行**: Google Chromeを使用し、browser-use で情報を収集。  
-  * **人間らしい挙動**: ページ読み込み後のスクロール、マウスの微細移動をシミュレート。  
-* **SST-Worker-CT (on Shub-niggurath)**: 音声変換(FFmpeg)、画像加工(Pillow)、タグ注入。  
-* **Ollama-Server (on M2 MBA)**: LLM/VLM推論リクエストの処理。  
-* **MinIO (Central Buffer)**: すべての中間ファイル、レビュー隔離用ファイルの保存先。
+## 2. Scope
 
-## **3\. 音声フォーマットおよびタグ規定 (ID3v2.3)**
+### Target
 
-### **音声フォーマット**
+* Soundtracks purchased via Steam
+* Audio files with missing or unreliable metadata
 
-* **ロスレス原音 (WAV, FLAC等)**: **AIFF** へ変換（最大 48kHz / 24bit）。  
-* **ロスチャージ原音 (MP3)**: **MP3** のまま保持。  
-* **共通**: 元ファイルは操作せず、MinIO経由でコピーした作業用ファイルを処理。
+### Non-Target
 
-### **メタデータスキーマ (ID3v2.3 準拠)**
+* Streaming audio
+* Non-Steam audio collections
+* Live recordings or user-modified audio
 
-| フィールド | ID3タグ | 格納データ構造 | 備考 |
-| :---- | :---- | :---- | :---- |
-| タイトル | TIT2 | 曲名 (Original Title) | 必要に応じて (Disc 1\) 等を付与 |
-| アーティスト | TPE1 | 作曲家名 (VGMdb優先) | 複数名は「:」区切り |
-| アルバム | TALB | サウンドトラック名 | Steam上の表記に準拠 |
-| アルバムアーティスト | TPE2 | 開発元 | 発売元 | 企業名をパイプ記号で区切る |
-| ジャンル | TCON | STEAM VGM, \[ジャンル\] |  |
-| グルーピング | TIT1 | \[シリーズ名\] | Steam | 検索用識別子 |
-| コメント | COMM | \[ゲーム名\] | \[タグ\] | \[AppID\] | \[URL\] |  |
-| 作曲者 | TCOM | 作曲家名 (個人名) | TPE1と同等または詳細情報 |
-| 発行年 | **TYER** | リリース年 (YYYY) | **v2.3準拠の必須フィールド** |
-| 発行日付 | **TDAT** | リリース月日 (DDMM) | **v2.3準拠の必須フィールド** |
-| アートワーク | APIC | 500x500 px / PNG | 非正方形は黒背景で補完 |
+---
 
-## **4\. 識別（Identity）ロジックおよび信頼スコア**
+## 3. High-Level Pipeline
 
-### **自動判定条件**
+```
+[Input Audio Files]
+        ↓
+        [Steam Metadata Fetch (AppID)]
+                ↓
+                [MusicBrainz Album Candidate Search]
+                        ↓
+                        [Candidate Filtering & Scoring]
+                                ↓
+                                [Album Determination]
+                                        ↓
+                                        [Partial AcoustID Verification (3 tracks)]
+                                                ↓
+                                                [Full AcoustID Fallback (if needed)]
+                                                        ↓
+                                                        [Metadata Enrichment]
+                                                                ↓
+                                                                [Tag Writing]
+                                                                        ↓
+                                                                        [Storage (MinIO)]
+                                                                                ↓
+                                                                                [Review Queue (if necessary)]
+                                                                                ```
 
-AcoustIDによる音響指紋同定を主軸とし、以下の条件を満たさない場合は処理をスキップし隔離する。
+                                                                                ---
 
-1. **スコア閾値**: AcoustID最高スコアが **0.9未満**。  
-2. **スコア・ギャップ判定**: 最高スコアと次点候補の差が **0.05以内**（エディション違いの懸念）。  
-3. **メタデータ不一致検知**: Steamタイトルと取得メタデータ間の編集距離（Levenshtein距離）が著しく離れている場合。  
-4. **複数候補**: 設定ファイルで指定した優先言語（ja 等）で1件に絞り込めない場合。
+## 4. Input Requirements
 
-### **人間レビュー用隔離構成**
+### Required
 
-* **配置先**: \[MinIO\]/review/  
-* **ファイル名**: \[音源ファイル名\]\_FAILED\_\[サントラAppID\]-\[ゲームAppID\].md  
-* **形式**: ハイブリッド方式  
-  * **YAML Frontmatter**: システム再読込用のJSONデータ（スコア、候補ID等）。  
-  * **Markdown Body**: 人間が比較・判断するための詳細比較表。
+* Steam AppID
+* Local audio files (same album)
 
-## **5\. 情報収集（Scout）戦略の詳細**
+### Derived
 
-### **MusicBrainzからの情報取得のコツ**
+* Track count
+* File duration
+* AcoustID fingerprints
 
-* MusicBrainzにもSteamサウンドトラック情報が意外とそろっている。  
-* MusicBrainzにて「Steamのサウンドトラック名」を対象「Release」で検索すると、Steam販売のサウンドトラック情報を引き出しやすい。  
-* 検索結果が複数出た場合は、「Format: "Digital Media"」「Country/Date: Steamのサウンドトラックのリリース日」「Tracks: 実際のトラック数」がマッチしているものを正解とする。
+---
 
-### **VGMdbからの情報取得のコツ**
+## 5. Steam Metadata Acquisition
 
-* ページ遷移ごとにロボット対策を挟む仕様に対処するため、Scoutは実ブラウザ（Chrome）でセッションを維持しつつテスト稼働を行う。  
-* サウンドトラックの日本語版タイトルと英語版タイトルのそれぞれ全文をallで検索して出なければ、登録されていないものとする。  
-* 該当する登録が1件しかない場合はサウンドトラック情報のページが表示されるが、複数あった場合は複数候補リストからの選択ページが挟まれる。  
-* 複数候補リストでは、以下の順で優先言語（設定ファイル準拠：ja \> en \> 原語）を適用する。  
-* 候補絞り込み条件：「RELEASED: ゲームのリリース日」「MEDIA FORMAT: Digitalを含んでいる」の2条件すべてに合致するものを正解候補とする。  
-* VGMdbで最も価値がある情報は、Notes項にあるフリーフォーマットで記載されたCredit情報。トラックごとのアーティスト、コンポーザー、アレンジャー、リミキサー情報を抽出する。  
-* MusicBrainzおよびVGMdbの両方で「ディスク番号・トラック番号・トラック名」の情報が得られない場合は、人間レビューへ回す。
+### Source
 
-## **6\. エラーハンドリングと信頼性**
+* Steam Store API
 
-### **適応的エラー対応**
+### Required Fields
 
-テスト稼働にてエラーメッセージを確実にピックアップし、以下のロジックを適用する。
+* Title (localized)
+* Release date
 
-1. **一時的制限 (Soft Limit / HTTP 429\)**: 指数バックオフ（10分 → 30分 → 60分）でリトライ。  
-2. **クォータ超過 (Hard Limit)**: 翌日まで待機（24時間停止）。  
-3. **サーバ不調 (Outage / HTTP 503等)**: 15分おきの「パルス・チェック（生存確認）」モードへ移行。復旧検知まで全リクエスト凍結。
+### Notes
 
-### **リトライ規定**
+* Date precision may vary (year-only possible)
+* Title may differ from MusicBrainz entries
 
-* 1トラックあたり最大3回。3回失敗した場合は人間レビューへ回し、次のトラックへ移行する。  
-* 待機時間：検索間隔は「10秒 \+ 最大10秒のランダム」を基本とする。
+---
 
-## **7\. SST-CDDB プロトタイプ・スキーマ**
+## 6. MusicBrainz Search Strategy
 
-将来のOSS化を見据え、以下の情報をローカルDBにキャッシュする。
+### Endpoint
 
-### **identity\_mapping (識別子統合層)**
+```
+/ws/2/release/
+```
 
-* steam\_appid (PK)  
-* mbid\_release (MusicBrainz ID)  
-* vgmdb\_album\_id (VGMdb ID)  
-* priority\_lang (ja/en等)  
-* confidence\_score (確信度)  
-* manual\_verified (人間による確認済フラグ)
+---
 
-### **track\_fingerprints (音響指紋層)**
+### Multi-Language Strategy
 
-* file\_sha256 (PK)  
-* acoustid\_id  
-* duration\_ms  
-* mbid\_recording
+Search is executed in parallel using multiple title variants and merged.
 
-**特記事項**: 誤った情報をAcoustID等へ送信することは避ける。未登録情報はローカルDBに留め、検証済みのデータのみを将来の貢献対象とする。
+```yaml
+search:
+  languages:
+      - ja
+          - en
+              - original
+                strategy: merge
+                ```
+
+                ---
+
+### Query Template
+
+```
+(
+  release:"{title_ja}"^3 OR
+    release:"{title_en}"^2 OR
+      release:"{title_original}"
+      )
+AND format:digital
+AND date:[{YYYY}-01-01 TO {YYYY}-12-31]
+```
+
+---
+
+### Result Handling
+
+* Merge results from all queries
+* Deduplicate by MBID
+* Limit to top N candidates (e.g., 20)
+
+---
+
+## 7. Candidate Filtering
+
+```yaml
+album_match:
+  track_count_tolerance: 1
+    date_tolerance_days: 30
+    ```
+
+### Conditions
+
+* Format must be Digital Media
+* Track count within tolerance
+* Release date within tolerance
+
+---
+
+## 8. Candidate Scoring
+
+```
+score =
+  title_similarity
+    + track_count_score
+      + release_date_score
+        + format_score
+        ```
+
+        ---
+
+### Title Similarity
+
+* Normalize text (lowercase, remove symbols, normalize Unicode)
+* Use string similarity (e.g., Levenshtein or token-based)
+
+---
+
+### Track Count Score
+
+* Exact match → 1.0
+* ±1 difference → 0.7
+* Otherwise → 0
+
+---
+
+### Release Date Score
+
+* Within 7 days → 1.0
+* Within 30 days → 0.7
+* Within 90 days → 0.4
+* Otherwise → 0
+
+---
+
+### Format Score
+
+* Digital Media → 1.0
+* Otherwise → 0
+
+---
+
+### Acceptance Threshold
+
+```yaml
+search:
+  accept_threshold: 2.5
+  ```
+
+  ---
+
+## 9. Album Determination
+
+* Select candidate with highest score
+* If score ≥ threshold → ACCEPT
+* Otherwise → fallback to AcoustID
+
+---
+
+## 10. Partial AcoustID Verification
+
+### Configuration
+
+```yaml
+acoustid:
+  partial_verify_tracks: 3
+    partial_match_threshold: 0.8
+    ```
+
+    ---
+
+### Process
+
+1. Select first N tracks (default: 3)
+2. Generate fingerprints
+3. Query AcoustID
+4. Compare results with selected album
+
+---
+
+### Acceptance
+
+* Match ratio ≥ threshold → ACCEPT
+* Otherwise → Full AcoustID
+
+---
+
+## 11. Full AcoustID Matching (Fallback)
+
+### Trigger
+
+* No confident album candidate
+* Partial verification failed
+
+### Process
+
+* Fingerprint all tracks
+* Match each track individually
+* Reconstruct album from matches
+
+---
+
+## 12. Metadata Enrichment
+
+### Sources
+
+* MusicBrainz
+* Cover Art Archive
+
+### Fields
+
+* Album title
+* Track title
+* Artist
+* Track number
+* Disc number
+* Release date
+* Artwork
+
+---
+
+## 13. Tag Writing
+
+### Format
+
+* ID3v2.3 (strict)
+
+### Rules
+
+* Overwrite existing metadata
+* Preserve audio integrity
+
+---
+
+## 14. Storage
+
+### Backend
+
+* MinIO (S3-compatible)
+
+### Structure
+
+```
+bucket/
+  ├─ processed/
+    ├─ review/
+      └─ logs/
+      ```
+
+      ---
+
+## 15. Review System
+
+### Trigger Conditions
+
+* Low confidence score
+* Conflicting identification results
+
+### Output
+
+* YAML metadata
+* Markdown diff comparison
+
+---
+
+## 16. Cache Strategy
+
+* Cache all successful matches
+* Reuse only if confidence ≥ 0.95
+* manual_verified entries override all
+
+---
+
+## 17. State Management
+
+```
+INGESTED
+FINGERPRINTED
+IDENTIFIED
+ENRICHED
+TAGGED
+STORED
+FAILED
+```
+
+---
+
+## 18. Logging
+
+### Fields
+
+* job_id
+* track_id
+* step
+* result
+* error
+
+---
+
+## 19. Config Structure
+
+```yaml
+search:
+  languages: [ja, en, original]
+    accept_threshold: 2.5
+
+    album_match:
+      track_count_tolerance: 1
+        date_tolerance_days: 30
+
+        acoustid:
+          partial_verify_tracks: 3
+            partial_match_threshold: 0.8
+            ```
+
+            ---
+
+## 20. Design Principles
+
+* Deterministic processing
+* Minimize false positives
+* Prefer precision over recall
+* Human-in-the-loop fallback
+* Cache-driven improvement
+
+---
+
+## 21. Key Insight
+
+SST is not just a tagging tool.
+
+It is a **metadata resolution system** that combines:
+
+* Metadata inference
+* Acoustic verification
+* Human validation
+
+---
+
+# END
+
