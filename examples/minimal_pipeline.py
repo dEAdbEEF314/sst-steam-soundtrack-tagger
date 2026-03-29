@@ -1,130 +1,116 @@
 """
-Minimal SST Pipeline (Standalone)
+Minimal SST Pipeline (Prefect Flow)
 
-- 単一音源ファイルをAcoustIDで照合
-- 結果をprintするだけの最小構成
-- Workerコンテナ内で実行する前提
+This is the entrypoint for the SST system.
+Runs inside worker container.
 
 Usage:
-    docker exec -it sst-worker python examples/minimal_pipeline.py /mnt/work_area/test.flac
+    python minimal_pipeline.py --input /mnt/work_area/test.flac
 """
 
+from prefect import flow, task
 import os
-import sys
-import json
 import subprocess
-import requests
+import acoustid
+import musicbrainzngs
 
-ACOUSTID_API_URL = "https://api.acoustid.org/v2/lookup"
+ACOUSTID_API_KEY = os.getenv("ACOUSTID_API_KEY")
 
 
-def run_fpcalc(file_path: str):
-    """
-    fpcalcを実行してfingerprintとdurationを取得
-    """
+@task
+def fingerprint(file_path: str):
+    """Generate fingerprint using fpcalc"""
     try:
         result = subprocess.run(
             ["fpcalc", "-json", file_path],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
-        data = json.loads(result.stdout)
-        return data["fingerprint"], data["duration"]
+        return result.stdout
     except Exception as e:
-        raise RuntimeError(f"fpcalc failed: {e}")
+        raise RuntimeError(f"Fingerprint failed: {e}")
 
 
-def query_acoustid(fingerprint: str, duration: int, api_key: str):
-    """
-    AcoustID APIへ問い合わせ
-    """
-    params = {
-        "client": api_key,
-        "meta": "recordings releases releasegroups",
-        "duration": duration,
-        "fingerprint": fingerprint,
-    }
+@task
+def identify_with_acoustid(file_path: str):
+    """Identify track using AcoustID"""
+    try:
+        duration, fp = acoustid.fingerprint_file(file_path)
+        results = acoustid.lookup(ACOUSTID_API_KEY, fp, duration)
 
-    response = requests.get(ACOUSTID_API_URL, params=params, timeout=30)
+        if "results" not in results or len(results["results"]) == 0:
+            return None
 
-    if response.status_code != 200:
-        raise RuntimeError(f"AcoustID API error: {response.status_code}")
-
-    return response.json()
+        return results["results"][0]
+    except Exception as e:
+        raise RuntimeError(f"AcoustID failed: {e}")
 
 
-def parse_best_match(result_json: dict):
-    """
-    最もスコアの高い結果を抽出
-    """
-    results = result_json.get("results", [])
-    if not results:
-        return None
+@task
+def search_musicbrainz(title: str):
+    """Search release via MusicBrainz"""
+    musicbrainzngs.set_useragent("sst", "0.1")
 
-    best = max(results, key=lambda x: x.get("score", 0))
-
-    recordings = best.get("recordings", [])
-    if not recordings:
-        return {
-            "score": best.get("score"),
-            "title": None,
-            "artist": None,
-        }
-
-    rec = recordings[0]
-
-    title = rec.get("title")
-    artists = rec.get("artists", [])
-    artist_name = artists[0]["name"] if artists else None
-
-    return {
-        "score": best.get("score"),
-        "title": title,
-        "artist": artist_name,
-    }
+    try:
+        result = musicbrainzngs.search_releases(
+            release=title,
+            limit=5
+        )
+        return result
+    except Exception as e:
+        raise RuntimeError(f"MusicBrainz search failed: {e}")
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python minimal_pipeline.py <audio_file>")
-        sys.exit(1)
+@task
+def process_file(file_path: str):
+    """Main processing logic for one file"""
 
-    file_path = sys.argv[1]
+    print(f"[INFO] Processing: {file_path}")
 
-    if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
-        sys.exit(1)
+    # Step 1: Fingerprint
+    fp = fingerprint(file_path)
 
-    api_key = os.getenv("ACOUSTID_API_KEY")
-    if not api_key:
-        print("ERROR: ACOUSTID_API_KEY is not set")
-        sys.exit(1)
+    # Step 2: AcoustID
+    acoustid_result = identify_with_acoustid(file_path)
 
-    print("=== SST Minimal Pipeline ===")
-    print(f"File: {file_path}")
+    if not acoustid_result:
+        print("[WARN] No AcoustID result")
+        return
 
-    # Step 1: fingerprint
-    print("\n[1] Running fpcalc...")
-    fingerprint, duration = run_fpcalc(file_path)
-    print(f"Duration: {duration}s")
+    # Extract title
+    try:
+        title = acoustid_result["recordings"][0]["title"]
+    except Exception:
+        print("[WARN] No title found")
+        return
 
-    # Step 2: AcoustID query
-    print("\n[2] Querying AcoustID...")
-    result_json = query_acoustid(fingerprint, duration, api_key)
+    print(f"[INFO] Detected title: {title}")
 
-    # Step 3: parse result
-    print("\n[3] Parsing result...")
-    best = parse_best_match(result_json)
+    # Step 3: MusicBrainz
+    mb_result = search_musicbrainz(title)
 
-    print("\n=== RESULT ===")
-    if best:
-        print(f"Score : {best['score']}")
-        print(f"Title : {best['title']}")
-        print(f"Artist: {best['artist']}")
+    print("[INFO] MusicBrainz result:", mb_result)
+
+
+@flow(name="sst-minimal-pipeline")
+def sst_pipeline(input_path: str):
+    """Prefect Flow entrypoint"""
+
+    if os.path.isfile(input_path):
+        process_file(input_path)
     else:
-        print("No match found")
+        for file in os.listdir(input_path):
+            full_path = os.path.join(input_path, file)
+            if full_path.endswith((".flac", ".mp3", ".wav")):
+                process_file(full_path)
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    args = parser.parse_args()
+
+    sst_pipeline(args.input)

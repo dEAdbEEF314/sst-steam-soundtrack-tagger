@@ -1,0 +1,24 @@
+# SST Example Config
+
+acoustid:
+  api_key: "YOUR_API_KEY"
+  score_threshold: 0.9
+  partial_verify_tracks: 3
+
+search:
+  languages:
+    - ja
+    - en
+    - original
+  strategy: merge
+
+album_match:
+  track_count_tolerance: 1
+  date_tolerance_days: 30
+
+retry:
+  max_attempts: 3
+  base_delay_sec: 5
+
+paths:
+  work_dir: "/mnt/work_area"
