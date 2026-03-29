@@ -1,33 +1,13 @@
-ST Input / Output Specification
+# IO Specification
+
+---
 
 ## Input
 
 ```json
 {
-      "app_id": 123456,
-        "input_dir": "./audio/",
-          "files": [
-              "track01.flac",
-                  "track02.flac"
-                    ]
-}
-```
-
----
-
-## Intermediate (Album Candidate)
-
-```json
-{
-      "candidates": [
-          {
-                    "mbid": "xxx",
-                          "title": "Album Name",
-                                "track_count": 12,
-                                      "release_date": "2023-05-01",
-                                            "score": 2.8
-                                                }
-                                                  ]
+  "app_id": 123456,
+  "input_path": "/mnt/work_area"
 }
 ```
 
@@ -37,30 +17,23 @@ ST Input / Output Specification
 
 ```json
 {
-      "album": {
-              "title": "Example Album",
-                  "artist": "Composer",
-                      "release_date": "2023-05-01"
-                        },
-                          "tracks": [
-                              {
-                                        "track_number": 1,
-                                              "title": "Track 01"
-                                                  }
-                                                    ],
-                                                      "confidence": 0.92,
-                                                        "status": "SUCCESS"
+  "status": "SUCCESS",
+  "album": "...",
+  "confidence": 0.95
 }
 ```
 
 ---
 
-## Failure Output
+## Internal
 
 ```json
 {
-      "status": "REVIEW_REQUIRED",
-        "reason": "low_confidence"
+  "state": "PROCESSING",
+  "node": "worker"
 }
 ```
 
+---
+
+# END

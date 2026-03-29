@@ -1,39 +1,43 @@
 # Coding Rules
 
-## Language
+---
+
+## 1. Language
 
 * Python 3.11
 
 ---
 
-## Requirements
+## 2. Environment
 
-* Type hints required
-* Logging required
-* Exception handling required
+* Use uv
 
 ---
 
-## Style
+## 3. Framework
 
-* Follow PEP8
-* Use dataclasses where applicable
-
----
-
-## API Rules
-
-* Retry on failure (max 3)
-* Respect rate limits
+* Prefect for orchestration
 
 ---
 
-## Logging
+## 4. Requirements
 
-Each step must log:
+* Stateless design
+* Idempotent tasks
 
-* job_id
-* step
-* result
-* error (if any)
+---
 
+## 5. Logging
+
+* Required in all tasks
+
+---
+
+## 6. External Tools
+
+* FFmpeg
+* Mutagen
+
+---
+
+# END
