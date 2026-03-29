@@ -34,4 +34,5 @@ out/
 # --- Sensitive Data ---
 # APIキーや秘密情報を含む可能性があるファイル
 .env
+work_area/
 config/secrets.yaml

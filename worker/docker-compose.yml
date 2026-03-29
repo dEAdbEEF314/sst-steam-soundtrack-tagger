@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  worker:
+    build: .
+    image: sst-worker
+    container_name: sst-worker
+    volumes:
+      - /mnt/work_area:/mnt/work_area
+    env_file:
+      - .env
+    environment:
+      - PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
+    restart: unless-stopped

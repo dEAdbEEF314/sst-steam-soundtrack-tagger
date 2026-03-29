@@ -1,0 +1,30 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: sst-worker-dev
+    container_name: sst-worker-dev
+
+    # 開発用：ローカルコードを即反映
+    volumes:
+      - .:/app
+      - ../work_area:/mnt/work_area
+
+    env_file:
+      - .env
+
+    environment:
+      - PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
+
+    working_dir: /app
+
+    stdin_open: true
+    tty: true
+
+    # 開発中は自動再起動いらない
+    restart: "no"
+
+    # とりあえず起動し続ける（手動実行用）
+    command: sleep infinity

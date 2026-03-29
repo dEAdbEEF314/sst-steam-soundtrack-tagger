@@ -1,0 +1,10 @@
+services:
+  core:
+    image: prefecthq/prefect:3-latest
+    container_name: sst-core
+    command: prefect server start --host 0.0.0.0
+    ports:
+      - "4200:4200"
+    environment:
+      - PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
+    restart: unless-stopped

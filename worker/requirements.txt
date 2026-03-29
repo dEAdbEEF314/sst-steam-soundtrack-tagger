@@ -1,0 +1,5 @@
+prefect
+mutagen
+pyacoustid
+requests
+boto3
