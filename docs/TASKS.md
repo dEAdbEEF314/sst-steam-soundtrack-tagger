@@ -5,7 +5,7 @@
 ## Phase 0: Infrastructure
 
 * Setup Prefect
-* Setup MinIO
+* Setup SeaweedFS S3 storage (endpoint, bucket, prefixes)
 * Setup Docker nodes
 
 ---

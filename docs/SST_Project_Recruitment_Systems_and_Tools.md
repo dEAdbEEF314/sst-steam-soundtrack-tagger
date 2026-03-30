@@ -40,7 +40,7 @@ Critical rules:
 | SST-Core-VM     | Prefect Server / orchestration |
 | SST-Worker-CT   | Audio processing / tagging |
 | SST-Scout-VM    | Steam metadata ingestion |
-| MinIO           | Object storage / cache / artifacts |
+| SeaweedFS S3    | Object storage / artifacts |
 
 ---
 
@@ -54,7 +54,7 @@ Critical rules:
    - Metadata merging
    - Tag writing
 4. Results:
-   - Stored in MinIO
+  - Stored in SeaweedFS (S3-compatible)
    - OR sent to review queue
 
 ---
@@ -116,22 +116,23 @@ Responsibilities:
 
 ---
 
-### MinIO (Object Storage)
+### SeaweedFS (S3-compatible Object Storage)
 
 Responsibilities:
 
-- Store processed outputs
+- Store input ingest objects
+- Store archived outputs
 - Store logs and artifacts
-- Store cache data
+- Store workspace temporary data
 - Store review queue data
 
 Example structure:
 
-bucket:
-  ├─ processed/
-  ├─ cache/
-  ├─ logs/
-  └─ review/
+buckets:
+  ├─ ingest/
+  ├─ archive/
+  ├─ review/
+  └─ workspace/
 
 ---
 
@@ -168,8 +169,10 @@ SST_Project/
 ### .env (Secrets ONLY)
 
 ACOUSTID_API_KEY=xxx
-MINIO_ACCESS_KEY=xxx
-MINIO_SECRET_KEY=xxx
+S3_ENDPOINT_URL=http://swfs-s3.outergods.lan
+S3_ACCESS_KEY=xxx
+S3_SECRET_KEY=xxx
+S3_BUCKET=buckets
 PREFECT_API_URL=http://sst-core-vm:4200/api
 
 Rules:
@@ -241,7 +244,7 @@ docker-compose.yml
 ### Internal
 
 - Worker → Core (Prefect API)
-- Worker → MinIO
+- Worker → SeaweedFS S3 endpoint
 - Scout → Steam API
 
 ---
@@ -313,14 +316,14 @@ Must handle:
 
 - Cache successful matches
 - Reuse if confidence > 0.95
-- Cache stored in MinIO
+- Cache data stored under workspace/
 - Manual corrections override cache
 
 ---
 
 ## Review System
 
-Stored in MinIO:
+Stored in SeaweedFS:
 
 review/
  ├─ job_id/
@@ -347,7 +350,7 @@ Each job must log:
 Logs must be:
 
 - Structured (JSON preferred)
-- Stored in MinIO
+- Stored in SeaweedFS (archive/ or workspace/ policy)
 
 ---
 

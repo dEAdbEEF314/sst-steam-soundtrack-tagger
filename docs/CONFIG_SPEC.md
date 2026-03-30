@@ -50,7 +50,12 @@ format:
 
 paths:
   input: /mnt/work_area
-  review: s3://bucket/review/
+  s3_endpoint_url: http://swfs-s3.outergods.lan
+  s3_bucket: buckets
+  ingest_prefix: ingest/
+  archive_prefix: archive/
+  review_prefix: review/
+  workspace_prefix: workspace/
 
 ---
 

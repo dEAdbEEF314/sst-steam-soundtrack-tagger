@@ -30,7 +30,7 @@ It is designed to run across multiple machines and containers, coordinated by Pr
    ↓
 [Worker Containers]
    ↓
-[MinIO Storage]
+[SeaweedFS S3 Storage]
 ```
 
 ---
@@ -83,20 +83,20 @@ Prefect manages:
 1. Scout collects metadata
 2. Core schedules flow
 3. Workers process tasks
-4. Results stored in MinIO
+4. Results stored in SeaweedFS
 
 ---
 
 ## 7. Storage
 
-MinIO (S3-compatible)
+SeaweedFS (S3-compatible)
 
 ```text
-bucket/
- ├─ raw/
- ├─ processed/
+buckets/
+ ├─ ingest/
+ ├─ archive/
  ├─ review/
- └─ cache/
+ └─ workspace/
 ```
 
 ---

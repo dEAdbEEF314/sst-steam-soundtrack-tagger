@@ -99,9 +99,9 @@ score =
 
 10. STORAGE
 
-- Save processed files
+- Save archived output files
 - Store metadata JSON
-- Upload review cases to MinIO
+- Upload review cases to SeaweedFS
 
 ---
 

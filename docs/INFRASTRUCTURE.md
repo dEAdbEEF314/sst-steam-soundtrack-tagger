@@ -17,7 +17,7 @@
 * Ubuntu Server
 * Docker
 * Prefect
-* MinIO
+* SeaweedFS S3 gateway
 
 ---
 
@@ -39,7 +39,7 @@
 
 ## 2. Storage
 
-* MinIO (Core VM)
+* SeaweedFS S3-compatible storage
 * Versioning enabled
 
 ---
@@ -74,7 +74,7 @@ Scout → Core → Worker → Storage
 ## 7. Fault Tolerance
 
 * Prefect retry
-* MinIO versioning
+* SeaweedFS object versioning
 
 ---
 

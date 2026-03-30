@@ -17,7 +17,7 @@ You are part of the SST development system.
 
 * Multi-node architecture
 * Scout / Core / Worker separation
-* MinIO storage
+* SeaweedFS (S3-compatible) storage
 
 ---
 

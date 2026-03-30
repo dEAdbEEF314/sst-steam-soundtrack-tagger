@@ -247,7 +247,7 @@ log:
 Failed or ambiguous cases are sent to:
 
 ```
-MinIO/review/
+s3://buckets/review/
 ```
 
 Each review item includes:

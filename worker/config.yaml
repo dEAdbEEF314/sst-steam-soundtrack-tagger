@@ -1,0 +1,36 @@
+acoustid:
+  api_key: ENV
+  score_threshold: 0.9
+  partial_verify_tracks: 3
+  partial_match_threshold: 0.8
+
+search:
+  languages:
+    - ja
+    - en
+    - original
+  strategy: merge
+
+album_match:
+  track_count_tolerance: 1
+  date_tolerance_days: 30
+
+retry:
+  max_attempts: 3
+  base_delay_sec: 5
+
+paths:
+  input: /mnt/work_area
+
+storage:
+  provider: s3_compatible
+  endpoint_url: http://swfs-s3.outergods.lan
+  bucket: buckets
+  prefixes:
+    ingest: ingest/
+    archive: archive/
+    review: review/
+    workspace: workspace/
+
+mode:
+  dry_run: false
