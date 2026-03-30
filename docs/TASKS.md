@@ -4,38 +4,128 @@
 
 ## Phase 0: Infrastructure
 
-* Setup Prefect
-* Setup SeaweedFS S3 storage (endpoint, bucket, prefixes)
-* Setup Docker nodes
+Goal:
+- Run a minimal Prefect flow on current Docker environment and confirm SeaweedFS connectivity.
+
+Tasks:
+- Setup Prefect server and verify API health.
+- Configure SeaweedFS S3 endpoint and credentials.
+- Confirm bucket and prefixes:
+	- bucket: buckets
+	- prefixes: ingest/, archive/, review/, workspace/
+- Setup Docker nodes (core/scout/worker) with shared network reachability.
+
+Acceptance Criteria:
+- Prefect API is reachable from worker container.
+- Worker can execute S3 ListBuckets/PutObject/GetObject.
+- A test object is written and read successfully under workspace/.
 
 ---
 
 ## Phase 1: Scout
 
-* browser-use integration
-* Metadata scraping
+Goal:
+- Collect Steam metadata required for album candidate narrowing.
+
+Tasks:
+- Implement Steam metadata fetch (AppID, localized title, release date).
+- Implement browser-use integration only where API data is insufficient.
+- Normalize localized/original titles for downstream search.
+- Output JSON contract consumable by core flow.
+
+Acceptance Criteria:
+- Given app_id, scout returns deterministic metadata JSON.
+- Missing fields are explicitly marked and logged.
 
 ---
 
 ## Phase 2: Core
 
-* Prefect flow design
-* Task orchestration
+Goal:
+- Orchestrate full pipeline as Prefect flow with deterministic retries and state transitions.
+
+Tasks:
+- Define flow entry parameters:
+	- app_id: int
+	- files: list[str]
+- Implement task graph:
+	- fetch_steam_metadata
+	- search_musicbrainz
+	- score_candidates
+	- partial_acoustid_verify
+	- full_acoustid_fallback
+	- write_tags
+	- persist_results
+- Configure retry policy via config:
+	- retry.max_attempts
+	- retry.base_delay_sec
+- Enforce rule: partial verification failure must escalate to full AcoustID.
+
+Acceptance Criteria:
+- Flow runs can be triggered manually and from deployment.
+- Failure/retry behavior matches docs/ERROR_HANDLING.md and docs/STATE_MACHINE.md.
+- Flow-level output JSON is produced for success and review cases.
 
 ---
 
 ## Phase 3: Worker
 
-* Audio processing
-* AcoustID matching
-* Tag writing
+Goal:
+- Implement worker modules and local execution path for one album end-to-end.
+
+Tasks:
+- Implement modules:
+	- acoustid/
+	- fingerprint/
+	- musicbrainz/
+	- scoring/
+	- tagging/
+	- pipeline/
+	- models/
+- Implement fpcalc wrapper and duration extraction.
+- Implement candidate scoring and threshold decision.
+- Implement tagging with ID3v2.3.
+- Implement SeaweedFS persistence:
+	- input references from ingest/
+	- output to archive/
+	- review artifacts to review/
+	- transient data to workspace/
+
+Acceptance Criteria:
+- One 31-track album completes with tags updated and output JSON written.
+- Partial verification failure correctly triggers full fallback.
+- Ambiguous/failure runs are persisted to review/.
 
 ---
 
 ## Phase 4: Integration
 
-* End-to-end pipeline
-* Error handling
+Goal:
+- Validate production-like behavior for quality, observability, and operability.
+
+Tasks:
+- Implement pytest suite for unit and integration tests.
+- Execute E2E test set:
+	- 1 known correct album
+	- 1 ambiguous album
+	- 1 failure album
+- Validate structured logging fields:
+	- job_id, track_id, step, result, error
+- Validate retry/backoff and final review routing.
+- Add deployment runbook for local operations.
+
+Acceptance Criteria:
+- Success criteria in docs/SUCCESS_CRITERIA.md are met.
+- Test reports and run artifacts are reproducible.
+- Operational runbook allows rerun without manual hidden steps.
+
+---
+
+## Current Priority (MVP)
+
+- Implement Phase 3 first for single-album E2E with manual app_id input.
+- Keep Scout optional for MVP; use direct metadata input when needed.
+- Complete Phase 2 minimal Prefect orchestration once worker path is stable.
 
 ---
 

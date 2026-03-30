@@ -203,7 +203,7 @@ album_match:
 
 retry:
   max_attempts: 3
-  backoff_seconds: 5
+  base_delay_sec: 5
 
 ---
 

@@ -7,7 +7,9 @@
 ```json
 {
   "app_id": 123456,
-  "input_path": "/mnt/work_area"
+  "files": [
+    "/mnt/work_area/album/01.flac"
+  ]
 }
 ```
 

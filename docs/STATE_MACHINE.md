@@ -25,7 +25,8 @@ CANDIDATE_FOUND →
 
 PARTIALLY_VERIFIED →
   FULLY_IDENTIFIED (if success)
-  OR FAILED
+  OR FULLY_IDENTIFIED (after full AcoustID fallback)
+  OR FAILED (if full AcoustID fallback also fails)
 
 FULLY_IDENTIFIED → TAGGED
 
