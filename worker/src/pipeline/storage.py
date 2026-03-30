@@ -1,0 +1,39 @@
+import json
+import os
+from typing import Any
+
+import boto3
+
+from models import StorageConfig
+
+
+def build_s3_client(storage: StorageConfig):
+    return boto3.client(
+        "s3",
+        endpoint_url=storage.endpoint_url,
+        aws_access_key_id=os.getenv("S3_ACCESS_KEY"),
+        aws_secret_access_key=os.getenv("S3_SECRET_KEY"),
+        region_name=os.getenv("S3_REGION", "us-east-1"),
+        use_ssl=os.getenv("S3_USE_SSL", "false").lower() == "true",
+    )
+
+
+def put_json(
+    client,
+    storage: StorageConfig,
+    prefix: str,
+    key_name: str,
+    payload: dict[str, Any],
+) -> str:
+    object_key = f"{prefix.rstrip('/')}/{key_name}.json"
+    client.put_object(
+        Bucket=storage.bucket,
+        Key=object_key,
+        Body=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        ContentType="application/json",
+    )
+    return object_key
+
+
+def check_storage_health(client, storage: StorageConfig) -> None:
+    client.head_bucket(Bucket=storage.bucket)
