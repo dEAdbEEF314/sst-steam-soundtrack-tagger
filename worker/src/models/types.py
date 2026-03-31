@@ -12,6 +12,7 @@ class Track:
 class AlbumCandidate:
     mbid: str
     title: str
+    artist: str | None = None
     track_count: int | None = None
     release_date: str | None = None
     score: float = 0.0

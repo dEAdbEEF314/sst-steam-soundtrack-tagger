@@ -61,6 +61,7 @@ Notes:
 ### full_acoustid_fallback
 - Input: all tracks
 - Output: resolved album or failure reason
+- Note: fallback title is used to re-query and refine MusicBrainz candidates before final album/artist selection.
 
 ### write_tags
 - Input: resolved metadata, files
@@ -70,9 +71,10 @@ Notes:
 - Input: run artifacts
 - Output: objects in SeaweedFS
 - Paths:
+	- ingest/ for source file reference manifests
 	- archive/ for successful outputs
 	- review/ for ambiguous or failed cases
-	- workspace/ for temporary/cache-like artifacts
+	- workspace/ for run metadata and temporary/cache-like artifacts
 
 ---
 
@@ -120,6 +122,11 @@ Notes:
 	- S3_BUCKET
 	- ACOUSTID_API_KEY
 - Observe run states in Prefect UI and verify final artifacts in SeaweedFS.
+
+Core operational scripts:
+- core/prefect/setup-work-pool.ps1
+- core/prefect/deploy-worker-flow.ps1
+- core/prefect/run-worker-deployment.ps1
 
 ---
 

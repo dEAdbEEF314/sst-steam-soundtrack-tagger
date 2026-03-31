@@ -2,9 +2,6 @@ FROM python:3.11-slim
 
 # ---- system deps ----
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libchromaprint-tools \
-    git \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,11 +15,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN uv pip install --system -r requirements.txt
 
-# ---- test fpcalc ----
-RUN which fpcalc && fpcalc -version
-
 # ---- copy src ----
-COPY . .
+COPY src/ ./src/
+COPY config.yaml .
 
-# ---- default command ----
-CMD ["prefect", "worker", "start", "--pool", "sst-worker-pool", "--work-queue", "sst-default"]
+# ---- PYTHONPATH ----
+ENV PYTHONPATH=/app/src
+
+# ---- default entry ----
+ENTRYPOINT ["python", "/app/src/main.py"]

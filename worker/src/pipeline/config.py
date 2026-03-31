@@ -16,6 +16,7 @@ class RetryConfig:
 class AcoustIdConfig:
     partial_verify_tracks: int
     partial_match_threshold: float
+    full_fallback_min_match_ratio: float
 
 
 @dataclass(slots=True)
@@ -45,6 +46,7 @@ def load_config(config_path: str) -> WorkerConfig:
         acoustid=AcoustIdConfig(
             partial_verify_tracks=int(acoustid_raw.get("partial_verify_tracks", 3)),
             partial_match_threshold=float(acoustid_raw.get("partial_match_threshold", 0.8)),
+            full_fallback_min_match_ratio=float(acoustid_raw.get("full_fallback_min_match_ratio", 0.4)),
         ),
         storage=StorageConfig(
             endpoint_url=endpoint,

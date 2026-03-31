@@ -1,0 +1,21 @@
+{
+  "steam_library": "D:\\SteamLibrary",
+  "acf_total": 200,
+  "soundtrack_count": 131,
+  "results": [
+    {
+      "app_id": 1297600,
+      "name": "art of rally OST",
+      "install_path": "D:\\SteamLibrary\\steamapps\\common\\artofrally",
+      "audio_count": 0,
+      "audio_files": []
+    },
+    {
+      "app_id": 1899360,
+      "name": "Return Ace Soundtrack",
+      "install_path": "D:\\SteamLibrary\\steamapps\\common\\Return Ace",
+      "audio_count": 0,
+      "audio_files": []
+    }
+  ]
+}

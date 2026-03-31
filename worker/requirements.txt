@@ -4,3 +4,4 @@ pyacoustid
 requests
 boto3
 PyYAML
+pytest

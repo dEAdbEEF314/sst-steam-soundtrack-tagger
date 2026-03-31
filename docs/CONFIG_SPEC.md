@@ -7,6 +7,7 @@ acoustid:
   score_threshold: 0.9
   partial_verify_tracks: 3
   partial_match_threshold: 0.8
+  full_fallback_min_match_ratio: 0.4
 
 ---
 

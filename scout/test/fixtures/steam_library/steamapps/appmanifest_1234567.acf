@@ -1,0 +1,19 @@
+"AppState"
+{
+	"appid"		"1234567"
+	"Universe"		"1"
+	"name"		"Victory Heat Rally- OST"
+	"StateFlags"		"4"
+	"installdir"		"Victory Heat Rally- OST"
+	"LastUpdated"		"1700000000"
+	"SizeOnDisk"		"51200000"
+	"BuildID"		"12345678"
+	"InstalledDepots"
+	{
+		"1234568"
+		{
+			"manifest"		"9876543210"
+			"size"		"51200000"
+		}
+	}
+}

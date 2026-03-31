@@ -35,5 +35,23 @@ def put_json(
     return object_key
 
 
+def put_json_for_prefix_name(
+    client,
+    storage: StorageConfig,
+    prefix_name: str,
+    key_name: str,
+    payload: dict[str, Any],
+) -> str:
+    prefix_map = {
+        "ingest": storage.ingest_prefix,
+        "archive": storage.archive_prefix,
+        "review": storage.review_prefix,
+        "workspace": storage.workspace_prefix,
+    }
+    if prefix_name not in prefix_map:
+        raise ValueError(f"Unknown prefix name: {prefix_name}")
+    return put_json(client, storage, prefix_map[prefix_name], key_name, payload)
+
+
 def check_storage_health(client, storage: StorageConfig) -> None:
     client.head_bucket(Bucket=storage.bucket)
