@@ -1,3 +1,3 @@
-from .client import search_releases
+from .client import search_releases, init_client
 
-__all__ = ["search_releases"]
+__all__ = ["search_releases", "init_client"]

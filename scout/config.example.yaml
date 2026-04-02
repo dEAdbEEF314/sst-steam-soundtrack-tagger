@@ -1,0 +1,29 @@
+# SST Scout - Configuration
+#
+# cp config.example.yaml config.yaml
+
+storage:
+  endpoint_url: http://localhost:9000
+  bucket: sst
+
+scan:
+  audio_extensions:
+    - .flac
+    - .mp3
+    - .ogg
+    - .wav
+    - .m4a
+    - .aiff
+  soundtrack_keywords:
+    - "OST"
+    - "Soundtrack"
+    - "Sound Track"
+    - "Original Sound"
+    - "Music Pack"
+    - "Digital Soundtrack"
+    - "Original Score"
+  min_audio_files: 1
+
+mode:
+  dry_run: false
+  upload_audio_files: true

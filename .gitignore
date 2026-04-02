@@ -36,3 +36,13 @@ out/
 .env
 work_area/
 config/secrets.yaml
+
+# 実体の設定ファイル（テンプレートは除く）
+config.yaml
+**/config.yaml
+
+# テスト結果や一時的な解析ログ
+*.txt
+*.log
+scout/test/_inspect_log.txt
+worker_test_result.txt

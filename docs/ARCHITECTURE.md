@@ -19,6 +19,10 @@ It is designed to run across multiple machines and containers, coordinated by Pr
 * SST-Worker-CT (Container, USB-SSD mounted)
 * M2 MacBook Air (AI / LLM support)
 
+> [!NOTE]
+> **Scout VM の環境について**
+> Scout VM は API 経由の解決に加えて、AI エージェントのデバッグ、ボット対策回避のための Headed mode 実行、および CAPTCHA 解決等の手動介入を想定し、Ubuntu Desktop (GUI) 環境を維持します。
+
 ---
 
 ## 3. System Architecture
@@ -39,8 +43,9 @@ It is designed to run across multiple machines and containers, coordinated by Pr
 
 ### Scout VM
 
-* Web metadata acquisition
-* browser-use execution
+* Web metadata resolution (API & CDDB)
+* Fallback browser automation (browser-use)
+* Manual review / Captcha solving
 
 ---
 
@@ -60,10 +65,12 @@ It is designed to run across multiple machines and containers, coordinated by Pr
 
 ---
 
-### M2 Mac
+### LLM Node (M2 Mac or others)
 
-* Local LLM (Ollama)
-* AI assistance
+* API 経由のマルチバックエンド LLM 推論
+* デフォルト: Ollama (ローカル推論)
+* 選択可能: Gemini API, OpenAI API
+* 役割: メタデータの不整合解決、検索結果のスコアリング、複雑な HTML パース
 
 ---
 
@@ -93,10 +100,11 @@ SeaweedFS (S3-compatible)
 
 ```text
 buckets/
- ├─ ingest/
- ├─ archive/
- ├─ review/
- └─ workspace/
+ └─ sst/
+     ├─ ingest/
+     ├─ archive/
+     ├─ review/
+     └─ workspace/
 ```
 
 ---

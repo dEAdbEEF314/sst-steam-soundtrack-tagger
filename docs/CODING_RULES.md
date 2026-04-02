@@ -10,13 +10,13 @@
 
 ## 2. Environment
 
-* Use uv
+* Use uv (パッケージインストール及び依存ロックに使用)
 
 ---
 
 ## 3. Framework
 
-* Prefect for orchestration
+* Prefect 3.x for orchestration
 
 ---
 

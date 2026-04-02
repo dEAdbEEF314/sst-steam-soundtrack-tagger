@@ -30,14 +30,27 @@ Assumptions:
 
 ## Identification Strategy
 
-### Hybrid Identification Strategy
+### Identification Strategy (Multi-layer Resolution)
 
-SST uses a multi-phase hybrid approach:
+SST uses a tiered resolution strategy to ensure metadata accuracy while minimizing site load:
 
-1. Steam Metadata → MusicBrainz (Album candidate narrowing)
-2. Candidate scoring
-3. Partial AcoustID verification
-4. Full AcoustID fallback (if necessary)
+1. **[Tier 1] Steam Store API**: Fetch basic info (Title, Release Date) using AppID.
+2. **[Tier 2] MusicBrainz API**: Identify MBID, **DiscID**, and external VGMdb links.
+3. **[Tier 3] VGMdb CDDB Emulator**: If DiscID is found, query VGMdb's freedb server (`ja.utf8`).
+4. **[Tier 4] Targeted Parser**: If URL is found but no CDDB, use a polite parser (e.g., `beets-vgmdb` logic).
+5. **[Tier 5] Fallback Search**: If no link is found, use Search API (Google/Bing) or controlled browser-use to identify URL.
+6. **[Fallback] Review Queue**: Ambiguous cases are handled manually.
+
+---
+
+## Data Source Hierarchy (Priority)
+
+In case of metadata mismatch between sources, the following priority applies:
+
+1. **Manual Verification**: User-overridden values.
+2. **MusicBrainz**: The primary "Source of Truth" for music-specific metadata.
+3. **VGMdb**: Reliable for game-specific soundtrack details (Composers, Catalog Number).
+4. **Steam Store**: Primary source for Title and AppID context (Release dates often differ from CD release).
 
 ---
 
@@ -247,7 +260,7 @@ log:
 Failed or ambiguous cases are sent to:
 
 ```
-s3://buckets/review/
+s3://sst/review/
 ```
 
 Each review item includes:

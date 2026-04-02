@@ -3,10 +3,9 @@
 ## States
 
 INGESTED
+IDENTIFIED
 FINGERPRINTED
-CANDIDATE_FOUND
-PARTIALLY_VERIFIED
-FULLY_IDENTIFIED
+ENRICHED
 TAGGED
 STORED
 FAILED
@@ -15,28 +14,25 @@ FAILED
 
 ## Transitions
 
-INGESTED → FINGERPRINTED
+- **Standard Path:**
+  INGESTED → IDENTIFIED (Candidates Found)
+  IDENTIFIED → FINGERPRINTED (AcoustID Verification Started)
+  FINGERPRINTED → ENRICHED (AcoustID Verified / Fallback Success)
+  ENRICHED → TAGGED
+  TAGGED → STORED
 
-FINGERPRINTED → CANDIDATE_FOUND
+- **Fast-track Path:**
+  INGESTED → IDENTIFIED
+  IDENTIFIED → ENRICHED (AcoustID Skipped due to very high confidence)
+  ENRICHED → TAGGED
+  TAGGED → STORED
 
-CANDIDATE_FOUND →
-  PARTIALLY_VERIFIED (if high score)
-  OR FULLY_IDENTIFIED (fallback)
-
-PARTIALLY_VERIFIED →
-  FULLY_IDENTIFIED (if success)
-  OR FULLY_IDENTIFIED (after full AcoustID fallback)
-  OR FAILED (if full AcoustID fallback also fails)
-
-FULLY_IDENTIFIED → TAGGED
-
-TAGGED → STORED
-
-ANY → FAILED (on unrecoverable error)
+- **Failure Path:**
+  ANY → FAILED (on low confidence fallback or unrecoverable error)
 
 ---
 
 ## Retry Rules
 
-- FAILED can be retried up to N times
-- Retry state resumes from last successful step
+- FAILED can be retried up to N times via Prefect mechanics.
+- Retry state resumes from last successful task based on task cache/flow status.

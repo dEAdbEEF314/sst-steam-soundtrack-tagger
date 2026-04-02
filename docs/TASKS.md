@@ -11,7 +11,7 @@ Tasks:
 - Setup Prefect server and verify API health.
 - Configure SeaweedFS S3 endpoint and credentials.
 - Confirm bucket and prefixes:
-	- bucket: buckets
+	- bucket: sst
 	- prefixes: ingest/, archive/, review/, workspace/
 - Setup Docker nodes (core/scout/worker) with shared network reachability.
 

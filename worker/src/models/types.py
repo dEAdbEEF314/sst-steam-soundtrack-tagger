@@ -1,15 +1,31 @@
-from dataclasses import dataclass
+"""データモデル定義 (Pydantic BaseModel)."""
+from __future__ import annotations
+
+from enum import Enum
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass(slots=True)
-class Track:
+
+class PipelineState(str, Enum):
+    """パイプラインの処理ステート。"""
+    INGESTED = "INGESTED"
+    FINGERPRINTED = "FINGERPRINTED"
+    IDENTIFIED = "IDENTIFIED"
+    ENRICHED = "ENRICHED"
+    TAGGED = "TAGGED"
+    STORED = "STORED"
+    FAILED = "FAILED"
+
+
+class Track(BaseModel):
+    """音声ファイルのトラック情報。"""
     path: str
     duration: float | None = None
 
 
-@dataclass(slots=True)
-class AlbumCandidate:
+class AlbumCandidate(BaseModel):
+    """MusicBrainz から取得したアルバム候補。"""
     mbid: str
     title: str
     artist: str | None = None
@@ -18,18 +34,14 @@ class AlbumCandidate:
     score: float = 0.0
 
 
-@dataclass(slots=True)
-class StorageConfig:
-    endpoint_url: str
-    bucket: str
-    ingest_prefix: str
-    archive_prefix: str
-    review_prefix: str
-    workspace_prefix: str
+class ScoredCandidate(BaseModel):
+    """スコアリング済みの候補。select_best_candidate で使用。"""
+    candidate: AlbumCandidate
+    final_score: float = 0.0
 
 
-@dataclass(slots=True)
-class RunContext:
+class RunContext(BaseModel):
+    """パイプライン実行コンテキスト。"""
     app_id: int
     files: list[str]
     dry_run: bool = False

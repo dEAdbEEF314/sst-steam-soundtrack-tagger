@@ -3,6 +3,8 @@ import os
 from typing import Any
 
 import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from models import StorageConfig
 
@@ -15,6 +17,7 @@ def build_s3_client(storage: StorageConfig):
         aws_secret_access_key=os.getenv("S3_SECRET_KEY"),
         region_name=os.getenv("S3_REGION", "us-east-1"),
         use_ssl=os.getenv("S3_USE_SSL", "false").lower() == "true",
+        config=Config(s3={'addressing_style': 'path'}),
     )
 
 
@@ -54,4 +57,14 @@ def put_json_for_prefix_name(
 
 
 def check_storage_health(client, storage: StorageConfig) -> None:
-    client.head_bucket(Bucket=storage.bucket)
+    try:
+        client.head_bucket(Bucket=storage.bucket)
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code")
+        if error_code in ("404", "403", "400"):
+            try:
+                client.create_bucket(Bucket=storage.bucket)
+            except Exception:
+                pass # SeaweedFS often auto-creates buckets anyway or doesn't support CreateBucket fully.
+        else:
+            raise

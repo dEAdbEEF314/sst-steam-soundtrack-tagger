@@ -1,16 +1,17 @@
+"""AcoustID API クライアント (acoustid_api モジュール)。"""
 import os
 from typing import Any
 
-import requests
+import httpx
 
 
-def identify_track(duration: int, fingerprint: str) -> dict[str, Any] | None:
-    api_key = os.getenv("ACOUSTID_API_KEY")
+def identify_track(duration: int, fingerprint: str, api_key: str, api_url: str = "https://api.acoustid.org/v2/lookup") -> dict[str, Any] | None:
+    """AcoustID API で音声トラックを識別する。"""
     if not api_key:
-        raise RuntimeError("ACOUSTID_API_KEY is not set")
+        raise RuntimeError("ACOUSTID_API_KEY is not set (provided as empty)")
 
-    resp = requests.get(
-        "https://api.acoustid.org/v2/lookup",
+    resp = httpx.get(
+        api_url,
         params={
             "client": api_key,
             "duration": duration,
@@ -29,6 +30,7 @@ def identify_track(duration: int, fingerprint: str) -> dict[str, Any] | None:
 
 
 def extract_recording_title(match: dict[str, Any] | None) -> str | None:
+    """マッチ結果からレコーディングタイトルを抽出する。"""
     if not match:
         return None
     recordings = match.get("recordings") if isinstance(match, dict) else None

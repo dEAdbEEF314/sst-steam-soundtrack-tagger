@@ -1,19 +1,30 @@
+"""ID3 タグ書き込み。"""
 from pathlib import Path
 
 from mutagen.id3 import ID3, ID3NoHeaderError, TALB, TIT2, TPE1, TRCK
 
 
-def write_basic_id3(
-    file_path: str,
-    album: str,
-    title: str,
-    artist: str,
-    track_number: int | None = None,
-    total_tracks: int | None = None,
-) -> None:
+def write_tags(file_path: str, metadata: dict) -> None:
+    """ID3v2.3 タグを書き込む。
+
+    Args:
+        file_path: 対象ファイルパス
+        metadata: タグ情報。キー:
+            - album: str
+            - title: str
+            - artist: str
+            - track_number: int | None
+            - total_tracks: int | None
+    """
     path = Path(file_path)
     if path.suffix.lower() != ".mp3":
         return
+
+    album = str(metadata.get("album", "Unknown Album"))
+    title = str(metadata.get("title", path.stem))
+    artist = str(metadata.get("artist", "Unknown Artist"))
+    track_number = metadata.get("track_number")
+    total_tracks = metadata.get("total_tracks")
 
     try:
         tags = ID3(file_path)

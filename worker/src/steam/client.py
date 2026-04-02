@@ -1,12 +1,14 @@
+"""Steam Store API クライアント。"""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
-import requests
+import httpx
 
 
 def _normalize_date(text: str | None) -> str | None:
+    """Steam の日付文字列を ISO 形式に正規化する。"""
     if not text:
         return None
     # Steam store date strings vary by locale; keep raw if strict parse fails.
@@ -18,9 +20,9 @@ def _normalize_date(text: str | None) -> str | None:
     return None
 
 
-def fetch_steam_metadata(app_id: int) -> dict[str, Any]:
-    url = "https://store.steampowered.com/api/appdetails"
-    resp = requests.get(url, params={"appids": app_id, "l": "english"}, timeout=20)
+def fetch_steam_metadata(app_id: int, api_url: str = "https://store.steampowered.com/api/appdetails") -> dict[str, Any]:
+    """Steam Store API からアプリのメタデータを取得する。"""
+    resp = httpx.get(api_url, params={"appids": app_id, "l": "english"}, timeout=20)
     resp.raise_for_status()
     payload = resp.json()
 

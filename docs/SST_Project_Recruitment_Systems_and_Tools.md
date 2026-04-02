@@ -41,6 +41,7 @@ Critical rules:
 | SST-Worker-CT   | Audio processing / tagging |
 | SST-Scout-VM    | Steam metadata ingestion |
 | SeaweedFS S3    | Object storage / artifacts |
+| M2 Mac          | LLM 推論 (Ollama / 外部LLMサービス) |
 
 ---
 
@@ -54,7 +55,7 @@ Critical rules:
    - Metadata merging
    - Tag writing
 4. Results:
-  - Stored in SeaweedFS (S3-compatible)
+   - Stored in SeaweedFS (S3-compatible)
    - OR sent to review queue
 
 ---
@@ -107,7 +108,9 @@ API:
 
 Responsibilities:
 
-- Steam API access
+- Steam library scanning (ACF manifest parsing)
+- Soundtrack app discovery
+- Audio file upload to SeaweedFS (ingest/)
 - Metadata extraction:
   - AppID
   - Title
@@ -129,10 +132,11 @@ Responsibilities:
 Example structure:
 
 buckets:
-  ├─ ingest/
-  ├─ archive/
-  ├─ review/
-  └─ workspace/
+  └─ sst/
+     ├─ ingest/
+     ├─ archive/
+     ├─ review/
+     └─ workspace/
 
 ---
 
@@ -144,23 +148,68 @@ SST_Project/
 │  ├─ docker-compose.yml
 │  ├─ docker-compose.dev.yml
 │  ├─ config.yaml
-│  ├─ .env
+│  ├─ requirements.txt
 │  └─ src/
+│     ├─ acoustid/
+│     ├─ acoustid_api/
+│     ├─ fingerprint/
+│     ├─ musicbrainz/
+│     ├─ scoring/
+│     ├─ steam/
+│     ├─ tagging/
+│     ├─ pipeline/
+│     └─ models/
 │
 ├─ core/
 │  ├─ docker-compose.yml
-│  └─ .env
+│  └─ prefect/
+│     ├─ setup-work-pool.ps1
+│     ├─ deploy-worker-flow.ps1
+│     └─ run-worker-deployment.ps1
 │
 ├─ scout/
 │  ├─ Dockerfile
-│  └─ docker-compose.yml
+│  ├─ docker-compose.yml
+│  ├─ docker-compose.dev.yml
+│  ├─ config.yaml
+│  ├─ .env.example
+│  ├─ requirements.txt
+│  ├─ src/
+│  │  ├─ main.py
+│  │  ├─ library_scanner.py
+│  │  ├─ acf_parser.py
+│  │  ├─ uploader.py
+│  │  └─ models.py
+│  └─ test/
 │
 ├─ docs/
+│  ├─ AGENT_PROMPT.md
+│  ├─ ARCHITECTURE.md
+│  ├─ CODING_RULES.md
+│  ├─ CONFIG_SPEC.md
+│  ├─ DATA_CONTRACTS.md
+│  ├─ DATA_FLOW.md
+│  ├─ ERROR_HANDLING.md
+│  ├─ INFRASTRUCTURE.md
+│  ├─ INTERFACES.md
+│  ├─ IO_SPEC.md
+│  ├─ PREFECT_FLOW.md
+│  ├─ PROJECT_STRUCTURE.md
+│  ├─ REPOSITORY_STRUCTURE.md
+│  ├─ SST_Project_Architecture.md
 │  ├─ SST_Project_Detailed_Specifications.md
-│  └─ SST_Project_Recruitment_Systems_and_Tools.md
+│  ├─ SST_Project_Recruitment_Systems_and_Tools.md
+│  ├─ STATE_MACHINE.md
+│  ├─ SUCCESS_CRITERIA.md
+│  ├─ TASKS.md
+│  └─ TEST_PLAN.md
 │
-└─ examples/
-   └─ minimal_pipeline.py
+├─ examples/
+│  ├─ minimal_pipeline.py
+│  ├─ .env.example
+│  └─ config.example.yaml
+│
+└─ work_area/
 
 ---
 
@@ -172,8 +221,8 @@ ACOUSTID_API_KEY=xxx
 S3_ENDPOINT_URL=http://swfs-s3.outergods.lan
 S3_ACCESS_KEY=xxx
 S3_SECRET_KEY=xxx
-S3_BUCKET=buckets
-PREFECT_API_URL=http://sst-core-vm:4200/api
+S3_BUCKET=sst
+PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
 
 Rules:
 
@@ -265,7 +314,7 @@ Health:
 
 - Python 3.11+
 - Docker / Docker Compose
-- Prefect 2.x
+- Prefect 3.x
 - ffmpeg
 - chromaprint (fpcalc)
 
@@ -279,6 +328,10 @@ Health:
 - mutagen
 - pyacoustid
 - musicbrainzngs
+- boto3
+- PyYAML
+- vdf (Scout)
+- python-dotenv (Scout)
 
 ---
 
@@ -378,6 +431,16 @@ AI agents must be able to:
 - Implement features without guessing environment
 - Run flows without manual intervention
 - Extend pipeline safely
+
+---
+
+## LLM Integration
+
+M2 Mac は API 経由の LLM 推論ノードとして機能する。
+
+- デフォルト: Ollama (ローカル推論)
+- 設定により外部 LLM サービス (OpenAI, Gemini 等) とシームレスに切り替え可能
+- メタデータの enrichment や曖昧なケースの自動判定に使用
 
 ---
 

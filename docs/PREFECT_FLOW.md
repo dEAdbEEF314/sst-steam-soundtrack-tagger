@@ -2,7 +2,7 @@
 
 ## Flow Name
 
-SST Pipeline
+sst-worker-pipeline
 
 ---
 
@@ -17,6 +17,7 @@ Prefectで可観測かつ再実行可能な形で実行する。
 
 - app_id: int
 - files: list[str]
+- config_path: str
 - dry_run: bool = false
 
 Notes:
@@ -28,11 +29,11 @@ Notes:
 ## Task Graph
 
 1. fetch_steam_metadata
-2. search_musicbrainz
-3. score_candidates
+2. search_musicbrainz_task
+3. score_candidates_task
 4. partial_acoustid_verify
 5. full_acoustid_fallback
-6. write_tags
+6. write_tags_task
 7. persist_results
 
 ---
@@ -42,19 +43,23 @@ Notes:
 ### fetch_steam_metadata
 - Input: app_id
 - Output: title variants, release_date
-- Retry: max_attempts, base_delay_sec
+- Retry: config.retry.acoustid_max_attempts (default 3), exponential backoff
+- デフォルトのタスクデコレータ: retries=2, retry_delay_seconds=5
+- Flow 実行時に with_options で config の値に上書き
 
-### search_musicbrainz
+### search_musicbrainz_task
 - Input: title variants
 - Behavior: ja/en/original を統合検索して MBID 重複排除
 - Output: candidate list
+- Retry: config.retry.musicbrainz_max_attempts (default 2), exponential backoff
 
-### score_candidates
+### score_candidates_task
 - Input: candidates, local context
 - Output: scored candidates, best candidate
+- Note: もし明確なトップ候補かつスコアが非常に高い (>= cfg.acoustid.skip_acoustid_threshold) 場合は、以降のAcoustIDタスクを全てスキップしてタグ付け（Fast-track）へ移行する。
 
 ### partial_acoustid_verify
-- Input: first N tracks, best candidate
+- Input: first N tracks, best candidate title, partial_tracks, threshold
 - Output: match_ratio
 - Rule: failure must escalate to full_acoustid_fallback
 
@@ -63,7 +68,7 @@ Notes:
 - Output: resolved album or failure reason
 - Note: fallback title is used to re-query and refine MusicBrainz candidates before final album/artist selection.
 
-### write_tags
+### write_tags_task
 - Input: resolved metadata, files
 - Output: tagging result summary
 
@@ -81,11 +86,11 @@ Notes:
 ## State and Transition Rules
 
 - Preferred path:
-	INGESTED -> FINGERPRINTED -> CANDIDATE_FOUND -> PARTIALLY_VERIFIED -> FULLY_IDENTIFIED -> TAGGED -> STORED
-- Fallback path:
-	PARTIALLY_VERIFIED (insufficient match) -> FULLY_IDENTIFIED (via full AcoustID)
+	INGESTED -> FINGERPRINTED -> IDENTIFIED -> ENRICHED -> TAGGED -> STORED
+- Fast-track path:
+	INGESTED -> IDENTIFIED -> ENRICHED (AcoustID Skip) -> TAGGED -> STORED
 - Failure path:
-	FULLY_IDENTIFIED failure -> FAILED -> review/
+	Any state -> FAILED -> review/
 
 ---
 
@@ -94,12 +99,19 @@ Notes:
 - Config keys:
 	- retry.max_attempts
 	- retry.base_delay_sec
+	- retry.backoff_strategy (default: exponential)
+	- retry.base_backoff_factor (default: 2)
+	- retry.acoustid_max_attempts (default: 3)
+	- retry.musicbrainz_max_attempts (default: 2)
 - Retry対象:
 	- network timeouts
 	- transient API failures
 - Retry後も失敗:
 	- fallback 可能なら fallback
 	- 不可なら review/ へ送る
+- Exponential Backoff:
+	- retry_delay_seconds は [base_delay_sec * factor^0, base_delay_sec * factor^1, ...] のリストを生成
+	- Prefect の with_options で適用
 
 ---
 

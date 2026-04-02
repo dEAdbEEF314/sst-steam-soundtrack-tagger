@@ -1,7 +1,9 @@
 prefect
+httpx
+pydantic
 mutagen
 pyacoustid
-requests
+musicbrainzngs
 boto3
 PyYAML
 pytest

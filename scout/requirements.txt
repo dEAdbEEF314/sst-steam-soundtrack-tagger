@@ -4,3 +4,10 @@ python-dotenv>=1.0
 PyYAML>=6.0
 pytest>=8.0
 pytest-mock>=3.0
+
+# LLM and Browser Agents
+browser-use==0.1.25
+playwright>=1.49.0
+langchain>=0.2.0
+langchain-ollama>=0.2.0
+langchain-openai>=0.2.0

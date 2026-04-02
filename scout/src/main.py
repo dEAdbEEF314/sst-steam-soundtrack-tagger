@@ -26,6 +26,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
+from config import load_config as load_scout_config
 from library_scanner import scan_library
 from uploader import build_s3_client, check_storage_health, upload_app
 
@@ -38,20 +39,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger("scout")
-
-
-# ---------------------------------------------------------------------------
-# Config helpers
-# ---------------------------------------------------------------------------
-
-def _load_config(config_path: str | None) -> dict:
-    path = config_path or os.getenv("SCOUT_CONFIG", "/app/config.yaml")
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return yaml.safe_load(fh) or {}
-    except FileNotFoundError:
-        logger.debug("Config file not found at %s — using defaults", path)
-        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -98,31 +85,39 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    config = _load_config(args.config)
-    storage_cfg: dict = config.get("storage", {})
+    # --- 設定ファイル読み込み ---
+    from config import ScoutConfig, PathsConfig, VGMdbConfig
+    from core.config import StorageConfig, LlmConfig, ModeConfig
+
+    config_path_val = args.config or os.getenv("SCOUT_CONFIG", "/app/config.yaml")
+    try:
+        config = load_scout_config(config_path_val)
+    except FileNotFoundError:
+        logger.debug("Config file not found at %s — using defaults", config_path_val)
+        config = ScoutConfig(
+            paths=PathsConfig(),
+            vgmdb=VGMdbConfig(),
+            storage=StorageConfig(),
+            llm=LlmConfig(),
+            mode=ModeConfig(),
+        )
 
     # --- Resolve runtime parameters (CLI > env > config > default) ---
     steam_library: str | None = (
         args.steam_library
         or os.getenv("STEAM_LIBRARY_PATH")
-        or config.get("scan", {}).get("steam_library_path")
+        or config.paths.input_dir
     )
     if not steam_library:
         logger.error(
             "Steam library path not set. "
-            "Use --steam-library, STEAM_LIBRARY_PATH env var, or config.yaml."
+            "Use --steam-library, STEAM_LIBRARY_PATH env var, or config.yaml/paths/input_dir."
         )
         return 1
 
-    endpoint_url: str = (
-        os.getenv("S3_ENDPOINT_URL")
-        or storage_cfg.get("endpoint_url", "http://swfs-s3.outergods.lan")
-    )
-    bucket: str = (
-        os.getenv("S3_BUCKET")
-        or storage_cfg.get("bucket", "buckets")
-    )
-    dry_run: bool = args.dry_run or os.getenv("DRY_RUN", "false").lower() == "true"
+    endpoint_url: str = config.storage.endpoint_url
+    bucket: str = config.storage.bucket
+    dry_run: bool = args.dry_run or (os.getenv("DRY_RUN", "false").lower() == "true") or config.mode.dry_run
     upload_audio: bool = not args.no_audio
 
     logger.info("Steam library : %s", steam_library)

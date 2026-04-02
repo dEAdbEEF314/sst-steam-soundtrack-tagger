@@ -1,3 +1,3 @@
-from .album import score_candidates
+from .album import has_clear_winner, score_candidates
 
-__all__ = ["score_candidates"]
+__all__ = ["has_clear_winner", "score_candidates"]

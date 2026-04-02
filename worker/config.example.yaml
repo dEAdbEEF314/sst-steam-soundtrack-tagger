@@ -1,0 +1,52 @@
+# SST Worker - Configuration
+#
+# cp config.example.yaml config.yaml
+
+acoustid:
+  api_key: ENV
+  score_threshold: 0.9
+  score_gap: 0.05
+  skip_acoustid_threshold: 0.9
+  partial_verify_tracks: 3
+  partial_match_threshold: 0.8
+  full_fallback_min_match_ratio: 0.4
+
+search:
+  languages:
+    - ja
+    - en
+    - original
+  strategy: merge
+
+album_match:
+  track_count_tolerance: 1
+  date_tolerance_days: 30
+
+retry:
+  max_attempts: 3
+  base_delay_sec: 5
+  backoff_strategy: exponential
+  base_backoff_factor: 2
+  acoustid_max_attempts: 3
+  musicbrainz_max_attempts: 2
+
+format:
+  lossless_target: aiff
+  max_sample_rate: 48000
+  max_bit_depth: 24
+
+paths:
+  input: /mnt/work_area
+
+storage:
+  provider: s3_compatible
+  endpoint_url: http://localhost:9000
+  bucket: sst
+  prefixes:
+    ingest: ingest/
+    archive: archive/
+    review: review/
+    workspace: workspace/
+
+mode:
+  dry_run: false
