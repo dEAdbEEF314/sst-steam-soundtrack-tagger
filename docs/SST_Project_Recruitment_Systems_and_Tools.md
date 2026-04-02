@@ -218,11 +218,11 @@ SST_Project/
 ### .env (Secrets ONLY)
 
 ACOUSTID_API_KEY=xxx
-S3_ENDPOINT_URL=http://swfs-s3.outergods.lan
+S3_ENDPOINT_URL=http://swfs-s3:8333
 S3_ACCESS_KEY=xxx
 S3_SECRET_KEY=xxx
 S3_BUCKET=sst
-PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
+PREFECT_API_URL=http://core:4200/api
 
 Rules:
 
@@ -300,7 +300,7 @@ docker-compose.yml
 
 ### Core Endpoint
 
-http://sst-core-vm.outergods.lan:4200/api
+http://core:4200/api
 
 Health:
 

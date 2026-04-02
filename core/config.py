@@ -7,7 +7,7 @@ class LlmConfig(BaseModel):
     provider: str = Field(default="ollama")
     model: str = Field(default="qwen2.5-coder:14b")
     api_key: str = Field(default="")
-    base_url: str = Field(default="")
+    base_url: str = Field(default="")  # 必須項目（環境変数 or YAML で指定）
     temperature: float = Field(default=0.1)
 
     @classmethod
@@ -16,14 +16,14 @@ class LlmConfig(BaseModel):
             provider=str(raw.get("provider", "ollama")),
             model=str(raw.get("model", "qwen2.5-coder:14b")),
             api_key=os.getenv("LLM_API_KEY", raw.get("api_key", "")),
-            base_url=os.getenv("OLLAMA_BASE_URL", raw.get("base_url", "http://mba.outergods.lan:11434")),
+            base_url=os.getenv("OLLAMA_BASE_URL", raw.get("base_url")),
             temperature=float(raw.get("temperature", 0.1)),
         )
 
 class StorageConfig(BaseModel):
     """ストレージ関連設定"""
     provider: str = Field(default="s3_compatible")
-    endpoint_url: str = Field(default="http://swfs-s3.outergods.lan")
+    endpoint_url: str = Field(default="")  # 必須項目
     bucket: str = Field(default="sst")
     ingest_prefix: str = Field(default="ingest/")
     archive_prefix: str = Field(default="archive/")
@@ -35,7 +35,7 @@ class StorageConfig(BaseModel):
         prefixes = raw.get("prefixes", {})
         return cls(
             provider=str(raw.get("provider", "s3_compatible")),
-            endpoint_url=os.getenv("S3_ENDPOINT_URL", raw.get("endpoint_url", "http://swfs-s3.outergods.lan")),
+            endpoint_url=os.getenv("S3_ENDPOINT_URL", raw.get("endpoint_url")),
             bucket=os.getenv("S3_BUCKET", raw.get("bucket", "sst")),
             ingest_prefix=str(prefixes.get("ingest", "ingest/")),
             archive_prefix=str(prefixes.get("archive", "archive/")),

@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory = $true)]
   [string[]]$Files,
 
-  [string]$ApiUrl = "http://sst-core-vm.outergods.lan:4200/api",
+  [string]$ApiUrl = $(if ($env:PREFECT_API_URL) { $env:PREFECT_API_URL } else { "http://localhost:4200/api" }),
   [string]$DeploymentFullName = "sst-worker-pipeline/sst-worker-mvp",
   [switch]$DryRun,
   [switch]$Watch

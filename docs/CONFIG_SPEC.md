@@ -16,7 +16,7 @@ llm:
   provider: ollama            # ollama, google-genai, openai
   model: qwen2.5-coder:14b
   api_key: ENV                # ENV: LLM_API_KEY（ローカル LLM では省略可）
-  base_url: http://mba.outergods.lan:11434  # ENV: OLLAMA_BASE_URL
+  base_url: http://localhost:11434  # ENV: OLLAMA_BASE_URL
   temperature: 0.1
 ```
 
@@ -25,7 +25,7 @@ llm:
 ```yaml
 storage:
   provider: s3_compatible
-  endpoint_url: http://swfs-s3.outergods.lan  # ENV: S3_ENDPOINT_URL
+  endpoint_url: http://localhost:9000  # ENV: S3_ENDPOINT_URL
   bucket: sst                                  # ENV: S3_BUCKET
   prefixes:
     ingest: ingest/

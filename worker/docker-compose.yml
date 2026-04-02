@@ -10,5 +10,5 @@ services:
     env_file:
       - .env
     environment:
-      - PREFECT_API_URL=http://sst-core-vm.outergods.lan:4200/api
+      - PREFECT_API_URL=${PREFECT_API_URL}
     restart: unless-stopped

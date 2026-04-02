@@ -1,5 +1,5 @@
 param(
-  [string]$ApiUrl = "http://sst-core-vm.outergods.lan:4200/api",
+  [string]$ApiUrl = $(if ($env:PREFECT_API_URL) { $env:PREFECT_API_URL } else { "http://localhost:4200/api" }),
   [string]$PoolName = "sst-worker-pool",
   [string]$QueueName = "sst-default",
   [string]$WorkerType = "process",
