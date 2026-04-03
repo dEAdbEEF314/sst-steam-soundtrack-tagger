@@ -74,7 +74,7 @@ Notes:
 acoustid:
   api_url: https://api.acoustid.org/v2/lookup
   api_key: ENV                                  # ENV: ACOUSTID_API_KEY（必須）
-  score_threshold: 0.9
+  skip_acoustid_threshold: 0.9                  # MusicBrainz スコアがこの値以上なら AcoustID 検証をスキップ
   score_gap: 0.05
   partial_verify_tracks: 3
   partial_match_threshold: 0.8

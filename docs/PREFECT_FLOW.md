@@ -86,9 +86,9 @@ Notes:
 ## State and Transition Rules
 
 - Preferred path:
-	INGESTED -> FINGERPRINTED -> IDENTIFIED -> ENRICHED -> TAGGED -> STORED
+	INGESTED -> IDENTIFIED -> FINGERPRINTED -> ENRICHED -> TAGGED -> STORED
 - Fast-track path:
-	INGESTED -> IDENTIFIED -> ENRICHED (AcoustID Skip) -> TAGGED -> STORED
+	INGESTED -> IDENTIFIED -> ENRICHED (AcoustID Skip, score >= skip_acoustid_threshold) -> TAGGED -> STORED
 - Failure path:
 	Any state -> FAILED -> review/
 

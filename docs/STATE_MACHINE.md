@@ -15,15 +15,15 @@ FAILED
 ## Transitions
 
 - **Standard Path:**
-  INGESTED → IDENTIFIED (Candidates Found)
+  INGESTED → IDENTIFIED (Candidates Found / MusicBrainz Search)
   IDENTIFIED → FINGERPRINTED (AcoustID Verification Started)
   FINGERPRINTED → ENRICHED (AcoustID Verified / Fallback Success)
   ENRICHED → TAGGED
   TAGGED → STORED
 
 - **Fast-track Path:**
-  INGESTED → IDENTIFIED
-  IDENTIFIED → ENRICHED (AcoustID Skipped due to very high confidence)
+  INGESTED → IDENTIFIED (MusicBrainz Score >= skip_acoustid_threshold)
+  IDENTIFIED → ENRICHED (AcoustID Skipped)
   ENRICHED → TAGGED
   TAGGED → STORED
 

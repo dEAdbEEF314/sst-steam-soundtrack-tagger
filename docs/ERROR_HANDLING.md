@@ -4,6 +4,7 @@
 
 - All errors must be logged
 - No silent failures
+  - 非対応フォーマット（MP3 以外）のファイルを `write_tags` がスキップする場合も WARNING レベルでログ出力を行うこと
 - Retry must be controlled via config
 
 ---
@@ -35,8 +36,11 @@
 
 ### Tag Write Failure
 
+- Supported formats: MP3 (ID3v2.3) — FLAC / WAV / AIFF 対応は Phase 3 追加実装タスク参照
+- Non-MP3 files: `write_tags` は WARNING をログ出力してスキップする（サイレント無視禁止）
 - Retry once
 - If fail → move to review
+- `write_tags_task` には `retries=1` を付与すること（現実装では未設定 — Phase 3 修正タスク参照）
 
 ---
 

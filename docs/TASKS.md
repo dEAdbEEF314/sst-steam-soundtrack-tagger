@@ -90,6 +90,15 @@ Tasks:
 	- output to archive/
 	- review artifacts to review/
 	- transient data to workspace/
+- **[追加] vgmdb_id / discid の Worker 出力フィールド実装**:
+	- resolved dict に `vgmdb_id` (str | None) と `discid` (str | None) を追加する。
+	- MusicBrainz release の relations から VGMdb リンク・DiscID を抽出する処理を musicbrainz/client.py に追加。
+	- DATA_CONTRACTS.md の Worker Output 出力契約に適合させる。
+- **[追加] search / album_match 設定の活用**:
+	- `search.languages` に基づいて MusicBrainz 検索時の言語バリアントを制御する。
+	- `album_match.track_count_tolerance` を scoring/album.py のトラック数比較に反映する。
+	- `album_match.date_tolerance_days` を scoring/album.py の `_date_score` に反映する（現在ハードコード 30 日）。
+	- WorkerConfig に SearchConfig / AlbumMatchConfig を追加し、config.yaml から読み込む。
 
 Acceptance Criteria:
 - One 31-track album completes with tags updated and output JSON written.
