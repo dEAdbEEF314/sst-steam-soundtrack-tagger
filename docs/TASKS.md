@@ -99,6 +99,13 @@ Tasks:
 	- `album_match.track_count_tolerance` を scoring/album.py のトラック数比較に反映する。
 	- `album_match.date_tolerance_days` を scoring/album.py の `_date_score` に反映する（現在ハードコード 30 日）。
 	- WorkerConfig に SearchConfig / AlbumMatchConfig を追加し、config.yaml から読み込む。
+- **[追加] INTERFACES.md の `identify_track` シグネチャ修正**:
+	- 現行の `identify_track(duration, fingerprint)` に `api_key: str`, `api_url: str` を追加して実装と一致させる。
+	- `docs/INTERFACES.md` の Functions セクションを更新する。
+- **[追加] `write_tags_task` へのリトライ設定追加**:
+	- `@task` デコレータまたは `with_options` で `retries=1` を付与する。
+	- 非MP3ファイルを `write_tags` がスキップする際に `WARNING` ログを出力する（サイレント無視禁止）。
+	- `docs/ERROR_HANDLING.md` の Tag Write Failure 節と整合する。
 
 Acceptance Criteria:
 - One 31-track album completes with tags updated and output JSON written.
