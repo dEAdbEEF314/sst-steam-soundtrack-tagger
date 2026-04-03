@@ -26,12 +26,31 @@ class SteamApp:
     # When the depot uses format subdirectories (e.g. "flac" / "mp3" siblings),
     # this is the *selected* subdirectory name relative to install_path.
     # None means files live directly under install_path.
+    # NOTE: In the new ingest flow, this mainly serves for backward compatibility
+    # or as a reference to the 'best' format if needed.
     format_dir: str | None = None
-    audio_files: list[str] = field(default_factory=list)
+    
+    # New: Grouped by extension (e.g., {".flac": [path1, path2], ".mp3": [path3]})
+    audio_files_by_ext: dict[str, list[str]] = field(default_factory=dict)
+
+    @property
+    def audio_files(self) -> list[str]:
+        """全拡張子のファイルを統合したフラットリスト（後方互換用）。"""
+        all_files = []
+        for files in self.audio_files_by_ext.values():
+            all_files.extend(files)
+        return sorted(all_files)
+
+    @property
+    def total_track_count(self) -> int:
+        """全拡張子の合計トラック数。"""
+        return sum(len(files) for files in self.audio_files_by_ext.values())
 
     @property
     def audio_root(self) -> str:
-        """Absolute path to the directory that directly contains audio_files."""
+        """Absolute path to the directory that contains audio files.
+        If format_dir is set, returns that. Otherwise returns install_path.
+        """
         if self.format_dir:
             from pathlib import Path
             return str(Path(self.install_path) / self.format_dir)
@@ -48,3 +67,4 @@ class UploadResult:
     file_keys: list[str]
     scout_result_key: str
     dry_run: bool = False
+

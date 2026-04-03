@@ -55,6 +55,7 @@ def upload_app(
     """
     acf_key = f"ingest/{app.app_id}/manifest.acf"
     file_keys: list[str] = []
+    files_by_ext_info: dict[str, dict] = {}
 
     # --- Upload ACF manifest ---
     if dry_run:
@@ -63,20 +64,64 @@ def upload_app(
         _upload_file(s3, app.acf_path, bucket, acf_key, content_type="text/plain")
         logger.info("Uploaded ACF: %s", acf_key)
 
-    # --- Upload audio files ---
-    if upload_audio:
-        for audio_path in app.audio_files:
-            rel = Path(audio_path).relative_to(app.audio_root).as_posix()
-            key = f"ingest/{app.app_id}/files/{rel}"
-            if dry_run:
-                size_mb = os.path.getsize(audio_path) / (1024 * 1024)
-                logger.info(
-                    "[DRY-RUN] Audio (%5.1f MB) → s3://%s/%s", size_mb, bucket, key
-                )
-            else:
-                _upload_file(s3, audio_path, bucket, key)
-                logger.info("Uploaded: %s", key)
-            file_keys.append(key)
+    # --- Generate file metadata and upload if requested ---
+    for ext, files in app.audio_files_by_ext.items():
+        ext_name = ext.lstrip(".")  # ".flac" -> "flac"
+        ext_keys = []
+        
+        for audio_path in files:
+            # Get relative path from install_path
+            rel = Path(audio_path).relative_to(app.install_path)
+            
+            # Normalize: Remove redundant format directories (e.g., "FLAC/")
+            parts = list(rel.parts)
+            filtered_parts = []
+            for part in parts[:-1]:
+                if part.lower() == ext_name.lower():
+                    continue
+                filtered_parts.append(part)
+            
+            filename = parts[-1]
+            
+            # Ensure "Disc 1" exists if no disc-like prefix is at the root
+            has_disc_prefix = False
+            disc_keywords = ["disc", "disk", "cd", "vol", "volume"]
+            if filtered_parts:
+                first_dir = filtered_parts[0].lower()
+                if any(first_dir.startswith(k) for k in disc_keywords):
+                    has_disc_prefix = True
+            
+            if not has_disc_prefix:
+                filtered_parts = ["Disc 1"] + filtered_parts
+            
+            rel_dir = Path(*filtered_parts)
+            
+            # New S3 Key structure: ingest/{AppID}/{InternalDir}/{ext}/{filename}
+            # This avoids duplicating "Disc 1" under both flac/ and mp3/ at the root level.
+            key = f"ingest/{app.app_id}/{rel_dir.as_posix()}/{ext_name}/{filename}"
+            
+            if upload_audio:
+                if dry_run:
+                    size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+                    logger.info(
+                        "[DRY-RUN] Audio (%5.1f MB) [%s] → s3://%s/%s", size_mb, ext_name, bucket, key
+                    )
+                else:
+                    _upload_file(s3, audio_path, bucket, key)
+                    logger.debug("Uploaded: %s", key)
+                
+                # Only add to UploadResult's file_keys if actually uploading
+                file_keys.append(key)
+            
+            # Always add to scout_result metadata
+            ext_keys.append(key)
+        
+        files_by_ext_info[ext_name] = {
+            "count": len(files),
+            "keys": ext_keys
+        }
+        if upload_audio and not dry_run:
+            logger.info("Uploaded %d files for format: %s", len(files), ext_name)
 
     # --- Write scout_result.json ---
     scout_result: dict = {
@@ -84,10 +129,9 @@ def upload_app(
         "name": app.name,
         "install_dir": app.install_dir,
         "storage_location": app.storage_location,
-        "format_dir": app.format_dir,
-        "track_count": len(app.audio_files),
+        "track_count": app.total_track_count,
+        "files_by_ext": files_by_ext_info,
         "acf_key": acf_key,
-        "file_keys": file_keys,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "dry_run": dry_run,
     }
@@ -96,7 +140,7 @@ def upload_app(
 
     if dry_run:
         logger.info("[DRY-RUN] Result → s3://%s/%s", bucket, result_key)
-        logger.info(
+        logger.debug(
             "[DRY-RUN] Payload:\n%s",
             json.dumps(scout_result, ensure_ascii=False, indent=2),
         )
@@ -117,6 +161,17 @@ def upload_app(
         scout_result_key=result_key,
         dry_run=dry_run,
     )
+
+
+def check_already_processed(s3, bucket: str, app_id: int) -> bool:
+    """Return True if scout_result.json already exists for this app_id."""
+    result_key = f"ingest/{app_id}/scout_result.json"
+    try:
+        s3.head_object(Bucket=bucket, Key=result_key)
+        return True
+    except Exception:
+        # If 404 or any error, we assume it's not processed
+        return False
 
 
 def check_storage_health(s3, bucket: str) -> None:

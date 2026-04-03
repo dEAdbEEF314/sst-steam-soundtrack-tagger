@@ -66,9 +66,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Log what would be uploaded without touching S3",
     )
     p.add_argument(
+        "--force",
+        action="store_true",
+        help="Skip already-processed check and re-upload everything",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        metavar="N",
+        help="Limit the number of new soundtracks to process",
+    )
+    p.add_argument(
         "--no-audio",
         action="store_true",
         help="Upload only ACF manifests, skip audio files",
+    )
+    p.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Set logging level (overrides LOG_LEVEL env)",
     )
     p.add_argument(
         "--config",
@@ -85,17 +101,30 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    
+    # --- Setup Logging ---
+    # CLI > ENV > Default
+    log_level = args.log_level or os.getenv("LOG_LEVEL", "INFO")
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+        force=True, # Ensure we override any existing config
+    )
+    logger.setLevel(log_level)
+
     # --- 設定ファイル読み込み ---
-    from config import ScoutConfig, PathsConfig, VGMdbConfig
+    from config import ScoutConfig, PathsConfig, VGMdbConfig, ScanConfig
     from core.config import StorageConfig, LlmConfig, ModeConfig
 
-    config_path_val = args.config or os.getenv("SCOUT_CONFIG", "/app/config.yaml")
+    config_path_val = args.config or os.getenv("SCOUT_CONFIG", "config.yaml")
     try:
         config = load_scout_config(config_path_val)
     except FileNotFoundError:
         logger.debug("Config file not found at %s — using defaults", config_path_val)
         config = ScoutConfig(
             paths=PathsConfig(),
+            scan=ScanConfig(),
             vgmdb=VGMdbConfig(),
             storage=StorageConfig(),
             llm=LlmConfig(),
@@ -125,10 +154,16 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Bucket        : %s", bucket)
     logger.info("Dry-run       : %s", dry_run)
     logger.info("Upload audio  : %s", upload_audio)
+    logger.info("Force upload  : %s", args.force)
 
     # --- Scan library ---
+    from library_scanner import scan_library
     try:
-        apps = scan_library(steam_library)
+        apps = scan_library(
+            steam_library,
+            audio_extensions=frozenset(config.scan.audio_extensions),
+            soundtrack_keywords=tuple(config.scan.soundtrack_keywords),
+        )
     except FileNotFoundError as exc:
         logger.error("%s", exc)
         return 1
@@ -143,28 +178,61 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("AppID %d not found in discovered soundtracks.", args.app_id)
             return 1
 
-    logger.info("Soundtracks to process: %d", len(apps))
-
     # --- Build S3 client (only when not dry-run) ---
     s3 = None
     if not dry_run:
+        from uploader import build_s3_client, check_storage_health, check_already_processed
         s3 = build_s3_client(endpoint_url)
         try:
             check_storage_health(s3, bucket)
         except Exception as exc:
             logger.error("Storage health check failed: %s", exc)
             return 1
+    else:
+        # In dry_run, we still want to check if it's already processed to show in logs
+        from uploader import check_already_processed
+
+    # --- Filter by process state and limit ---
+    targets = []
+    skipped_count = 0
+    
+    for app in apps:
+        # If force is False, check if already uploaded
+        # For dry_run, we check but logic continues for logging purposes unless specifically skipped
+        if not args.force:
+            # We need an s3 client for check_already_processed if not dry-run,
+            # or a dummy/mock for dry-run if we want to simulate the check.
+            # uploader.py's check_already_processed uses s3.head_object.
+            # In dry_run we might not have a real s3 client.
+            is_processed = False
+            if s3:
+                is_processed = check_already_processed(s3, bucket, app.app_id)
+            
+            if is_processed:
+                logger.info("Skipping (already processed): %s (app_id=%d)", app.name, app.app_id)
+                skipped_count += 1
+                continue
+        
+        targets.append(app)
+
+    # Apply limit
+    if args.limit is not None and args.limit > 0:
+        logger.info("Limit applied: processing first %d of %d candidates", args.limit, len(targets))
+        targets = targets[:args.limit]
+
+    logger.info("Soundtracks to process: %d (Skipped: %d)", len(targets), skipped_count)
 
     # --- Process each app ---
     results: list[dict] = []
     errors: list[dict] = []
 
-    for app in apps:
+    from uploader import upload_app
+    for app in targets:
         logger.info(
-            "Processing: %s  (app_id=%d, tracks=%d)",
+            "Processing: %s  (app_id=%d, total_tracks=%d)",
             app.name,
             app.app_id,
-            len(app.audio_files),
+            app.total_track_count,
         )
         try:
             result = upload_app(
@@ -189,11 +257,22 @@ def main(argv: list[str] | None = None) -> int:
 
     summary = {
         "processed": len(results),
+        "skipped": skipped_count,
         "failed": len(errors),
         "apps": results,
         "errors": errors,
     }
-    logger.info("Done — processed=%d  failed=%d", len(results), len(errors))
+    logger.info("Done — processed=%d  skipped=%d  failed=%d", len(results), skipped_count, len(errors))
+
+    if args.output_json:
+        Path(args.output_json).write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        logger.info("Summary written: %s", args.output_json)
+
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 1 if errors else 0
+
 
     if args.output_json:
         Path(args.output_json).write_text(
